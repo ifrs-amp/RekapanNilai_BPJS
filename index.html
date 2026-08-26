@@ -284,18 +284,18 @@
         <form id="reportForm">
           <div class="field">
             <label for="namaDepo">Nama Depo</label>
-            <input type="text" id="namaDepo" placeholder="Contoh: Depo Cikarang" required>
+            <input type="text" id="namaDepo" placeholder="Contoh: Depo Farmasi Rawat Jalan" required>
           </div>
           <div class="field">
             <label for="uraian">Uraian Kendala</label>
             <textarea id="uraian" placeholder="Jelaskan kendala yang terjadi..." required></textarea>
           </div>
           <div class="field">
-            <label>Bukti Dukung <span class="opt">(opsional, semua format file, maks 3 MB)</span></label>
+            <label>Bukti Dukung <span class="opt">(opsional, bisa lebih dari satu file, maks 10 MB per file)</span></label>
             <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
-              <input type="file" id="fileInput">
-              <div>Klik untuk pilih file</div>
-              <div class="hint">Foto, dokumen, PDF, dll — maksimal 3 MB</div>
+              <input type="file" id="fileInput" multiple>
+              <div>Klik untuk pilih file (bisa pilih beberapa sekaligus)</div>
+              <div class="hint">Foto, dokumen, PDF, dll — maksimal 10 MB per file, maksimal 5 file</div>
             </div>
             <div id="fileChosenWrap"></div>
           </div>
@@ -312,7 +312,9 @@
           <input type="text" id="filterInput" placeholder="Cari nama depo..." oninput="renderTable()">
           <span class="count-pill" id="countPill">0 laporan</span>
           <button class="btn-secondary" onclick="loadEntries()">⟳ Muat ulang</button>
+          <a class="btn-secondary" style="text-decoration:none;" href="https://docs.google.com/spreadsheets/d/1KPF_tQotfN6Hax3Gs-icaZdGSpqg4jkhS6dJVUffWV4/edit?gid=0#gid=0" target="_blank" rel="noopener">Buka Google Sheet ↗</a>
         </div>
+        <p class="footnote" style="margin:-8px 0 12px;">File bukti dukung tersimpan otomatis di Google Drive/Sheet. Untuk mengunduh file, buka Google Sheet di atas.</p>
         <div id="listContent"><div class="loading">Memuat data...</div></div>
       </div>
     </section>
@@ -321,7 +323,9 @@
 
 <script>
 const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwaN-SOHrKS-G8z0x_0GfSpaIBT4QpW_qjKheDl-SaCXvvkQfVbReH4V9IjLUZquup_/exec';
-let selectedFile = null;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
+const MAX_FILE_COUNT = 5;
+let selectedFiles = [];
 let entries = [];
 
 function switchTab(tab){
@@ -333,29 +337,42 @@ function switchTab(tab){
 }
 
 document.getElementById('fileInput').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  if(file.size > 3*1024*1024){
-    showFormMsg('error','Ukuran file terlalu besar. Maksimal 3 MB.');
-    e.target.value = '';
-    selectedFile = null;
-    renderFileChosen();
-    return;
+  const newFiles = Array.from(e.target.files || []);
+  e.target.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
+
+  let rejectedSize = false;
+  for(const file of newFiles){
+    if(file.size > MAX_FILE_SIZE){
+      rejectedSize = true;
+      continue;
+    }
+    const alreadyAdded = selectedFiles.some(f => f.name === file.name && f.size === file.size);
+    if(!alreadyAdded){
+      selectedFiles.push(file);
+    }
   }
-  selectedFile = file;
+
+  if(rejectedSize){
+    showFormMsg('error','Ada file yang lebih dari 10 MB dan tidak ditambahkan.');
+  }
+  if(selectedFiles.length > MAX_FILE_COUNT){
+    selectedFiles = selectedFiles.slice(0, MAX_FILE_COUNT);
+    showFormMsg('error', `Maksimal ${MAX_FILE_COUNT} file per laporan.`);
+  }
   renderFileChosen();
 });
 
 function renderFileChosen(){
   const wrap = document.getElementById('fileChosenWrap');
-  if(!selectedFile){ wrap.innerHTML=''; return; }
-  const sizeKb = (selectedFile.size/1024).toFixed(0);
-  wrap.innerHTML = `<div class="file-chosen">📎 ${escapeHtml(selectedFile.name)} (${sizeKb} KB)<button type="button" onclick="clearFile()">Hapus</button></div>`;
+  if(selectedFiles.length === 0){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = selectedFiles.map((f, idx)=>{
+    const sizeKb = (f.size/1024).toFixed(0);
+    return `<div class="file-chosen">📎 ${escapeHtml(f.name)} (${sizeKb} KB)<button type="button" onclick="clearFile(${idx})">Hapus</button></div>`;
+  }).join('');
 }
 
-function clearFile(){
-  selectedFile = null;
-  document.getElementById('fileInput').value = '';
+function clearFile(idx){
+  selectedFiles.splice(idx, 1);
   renderFileChosen();
 }
 
@@ -388,21 +405,38 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
   submitBtn.textContent = 'Mengirim...';
 
   try{
-    let fileData = null;
-    if(selectedFile){
-      const dataUrl = await fileToBase64(selectedFile);
-      fileData = {
-        name: selectedFile.name,
-        type: selectedFile.type || 'application/octet-stream',
-        size: selectedFile.size,
+    // Baca semua file terpilih jadi base64 (dipakai untuk kirim ke Google Sheet/Drive,
+    // dan untuk pratinjau lokal kalau ukurannya cukup kecil)
+    const filesWithData = [];
+    for(const f of selectedFiles){
+      const dataUrl = await fileToBase64(f);
+      filesWithData.push({
+        name: f.name,
+        type: f.type || 'application/octet-stream',
+        size: f.size,
         dataUrl: dataUrl
-      };
+      });
     }
+
+    // Penyimpanan lokal dibatasi ~5MB per entri, jadi lampiran hanya disimpan
+    // penuh di sini kalau totalnya masih kecil. File besar tetap terkirim ke
+    // Google Sheet/Drive (lihat syncToSheet), hanya saja pratinjau/unduhannya
+    // lewat Google Sheet, bukan dari dalam aplikasi ini.
+    const totalBase64Size = filesWithData.reduce((s, f) => s + f.dataUrl.length, 0);
+    const CAN_STORE_LOCALLY = totalBase64Size < 3.5 * 1024 * 1024;
+
+    const filesForLocalStorage = filesWithData.map(f => ({
+      name: f.name,
+      type: f.type,
+      size: f.size,
+      dataUrl: CAN_STORE_LOCALLY ? f.dataUrl : null
+    }));
 
     const entry = {
       namaDepo,
       uraian,
-      file: fileData,
+      files: filesForLocalStorage,
+      storedExternallyOnly: !CAN_STORE_LOCALLY,
       timestamp: Date.now()
     };
 
@@ -412,16 +446,17 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
       throw new Error('Gagal menyimpan data. Coba lagi.');
     }
 
-    // Kirim juga ke Google Sheets (best-effort, tidak menghambat jika gagal/lambat)
-    syncToSheet(entry);
+    // Kirim juga ke Google Sheets + Drive (best-effort, tidak menghambat jika gagal/lambat)
+    syncToSheet({ namaDepo, uraian, files: filesWithData });
 
     showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
     document.getElementById('namaDepo').value = '';
     document.getElementById('uraian').value = '';
-    clearFile();
+    selectedFiles = [];
+    renderFileChosen();
   }catch(err){
     console.error(err);
-    showFormMsg('error', err.message && err.message.includes('5MB') ? 'File terlalu besar untuk disimpan. Gunakan file di bawah 3 MB.' : 'Terjadi kesalahan saat mengirim laporan. Coba lagi.');
+    showFormMsg('error','Terjadi kesalahan saat mengirim laporan. Coba lagi.');
   }finally{
     submitBtn.disabled = false;
     submitBtn.textContent = 'Kirim Laporan';
@@ -434,9 +469,11 @@ function syncToSheet(entry){
     const payload = {
       namaDepo: entry.namaDepo,
       uraian: entry.uraian,
-      fileName: entry.file ? entry.file.name : '',
-      fileType: entry.file ? entry.file.type : '',
-      fileBase64: entry.file ? entry.file.dataUrl : ''
+      files: (entry.files || []).map(f => ({
+        name: f.name,
+        type: f.type,
+        base64: f.dataUrl
+      }))
     };
     fetch(SHEET_WEBHOOK_URL, {
       method: 'POST',
@@ -497,11 +534,17 @@ function renderTable(){
   let rows = '';
   filtered.forEach((e, idx)=>{
     const waktu = e.timestamp ? new Date(e.timestamp).toLocaleString('id-ID', {dateStyle:'medium', timeStyle:'short'}) : '-';
+    const files = e.files || [];
     let fileCell = '<span class="no-file">Tidak ada</span>';
-    if(e.file && e.file.dataUrl){
-      const isImage = e.file.type && e.file.type.startsWith('image/');
-      const thumb = isImage ? `<img class="thumb" src="${e.file.dataUrl}" alt="bukti">` : '';
-      fileCell = `${thumb}<a class="file-link" href="${e.file.dataUrl}" download="${escapeAttr(e.file.name)}">⬇ ${escapeHtml(truncate(e.file.name, 20))}</a>`;
+    if(files.length > 0){
+      fileCell = files.map(f=>{
+        if(f.dataUrl){
+          const isImage = f.type && f.type.startsWith('image/');
+          const thumb = isImage ? `<img class="thumb" src="${f.dataUrl}" alt="bukti">` : '';
+          return `<div style="margin-bottom:6px;">${thumb}<a class="file-link" href="${f.dataUrl}" download="${escapeAttr(f.name)}">⬇ ${escapeHtml(truncate(f.name, 20))}</a></div>`;
+        }
+        return `<div style="margin-bottom:6px;"><span class="file-link" style="background:#F1F0EA;color:var(--muted);">📎 ${escapeHtml(truncate(f.name, 20))} (lihat di Sheet)</span></div>`;
+      }).join('');
     }
     rows += `<tr>
       <td class="no">${idx+1}</td>
