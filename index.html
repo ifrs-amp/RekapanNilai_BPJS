@@ -325,6 +325,7 @@
 const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwaN-SOHrKS-G8z0x_0GfSpaIBT4QpW_qjKheDl-SaCXvvkQfVbReH4V9IjLUZquup_/exec';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
 const MAX_FILE_COUNT = 5;
+const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25 MB total per laporan
 let selectedFiles = [];
 let entries = [];
 
@@ -379,7 +380,7 @@ function clearFile(idx){
 function showFormMsg(type, text){
   const el = document.getElementById('formMsg');
   el.innerHTML = `<div class="msg ${type}">${escapeHtml(text)}</div>`;
-  if(type==='success'){ setTimeout(()=>{ el.innerHTML=''; }, 4000); }
+  if(type==='success'){ setTimeout(()=>{ el.innerHTML=''; }, 5000); }
 }
 
 function fileToBase64(file){
@@ -401,53 +402,27 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
     return;
   }
 
+  const totalSize = selectedFiles.reduce((s,f)=>s+f.size,0);
+  if(totalSize > MAX_TOTAL_SIZE){
+    showFormMsg('error','Total ukuran semua file terlalu besar (maks 25 MB total). Kurangi jumlah/ukuran file.');
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.textContent = 'Mengirim...';
 
   try{
-    // Baca semua file terpilih jadi base64 (dipakai untuk kirim ke Google Sheet/Drive,
-    // dan untuk pratinjau lokal kalau ukurannya cukup kecil)
     const filesWithData = [];
     for(const f of selectedFiles){
       const dataUrl = await fileToBase64(f);
       filesWithData.push({
         name: f.name,
         type: f.type || 'application/octet-stream',
-        size: f.size,
-        dataUrl: dataUrl
+        base64: dataUrl
       });
     }
 
-    // Penyimpanan lokal dibatasi ~5MB per entri, jadi lampiran hanya disimpan
-    // penuh di sini kalau totalnya masih kecil. File besar tetap terkirim ke
-    // Google Sheet/Drive (lihat syncToSheet), hanya saja pratinjau/unduhannya
-    // lewat Google Sheet, bukan dari dalam aplikasi ini.
-    const totalBase64Size = filesWithData.reduce((s, f) => s + f.dataUrl.length, 0);
-    const CAN_STORE_LOCALLY = totalBase64Size < 3.5 * 1024 * 1024;
-
-    const filesForLocalStorage = filesWithData.map(f => ({
-      name: f.name,
-      type: f.type,
-      size: f.size,
-      dataUrl: CAN_STORE_LOCALLY ? f.dataUrl : null
-    }));
-
-    const entry = {
-      namaDepo,
-      uraian,
-      files: filesForLocalStorage,
-      storedExternallyOnly: !CAN_STORE_LOCALLY,
-      timestamp: Date.now()
-    };
-
-    const key = 'entry:' + Date.now() + '-' + Math.random().toString(36).slice(2,9);
-    const result = await window.storage.set(key, JSON.stringify(entry), true);
-    if(!result){
-      throw new Error('Gagal menyimpan data. Coba lagi.');
-    }
-
-    // Kirim juga ke Google Sheets + Drive (best-effort, tidak menghambat jika gagal/lambat)
-    syncToSheet({ namaDepo, uraian, files: filesWithData });
+    await sendToSheet({ namaDepo, uraian, files: filesWithData });
 
     showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
     document.getElementById('namaDepo').value = '';
@@ -456,61 +431,42 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
     renderFileChosen();
   }catch(err){
     console.error(err);
-    showFormMsg('error','Terjadi kesalahan saat mengirim laporan. Coba lagi.');
+    showFormMsg('error','Gagal mengirim laporan. Periksa koneksi internet Anda dan coba lagi.');
   }finally{
     submitBtn.disabled = false;
     submitBtn.textContent = 'Kirim Laporan';
   }
 });
 
-function syncToSheet(entry){
-  if(!SHEET_WEBHOOK_URL || SHEET_WEBHOOK_URL.indexOf('PASTE_') === 0) return;
-  try{
-    const payload = {
-      namaDepo: entry.namaDepo,
-      uraian: entry.uraian,
-      files: (entry.files || []).map(f => ({
-        name: f.name,
-        type: f.type,
-        base64: f.dataUrl
-      }))
-    };
-    fetch(SHEET_WEBHOOK_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }).catch(err => console.warn('Sinkron ke Google Sheets gagal (data tetap tersimpan di sini):', err));
-  }catch(err){
-    console.warn('Sinkron ke Google Sheets gagal:', err);
-  }
+function sendToSheet(payload){
+  // mode 'no-cors' dipakai karena Google Apps Script tidak selalu mengirim header
+  // CORS saat diakses dari domain lain. Ini membuat request tetap terkirim dan
+  // diproses di server meski responsnya tidak bisa dibaca oleh browser.
+  return fetch(SHEET_WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  });
 }
 
 async function loadEntries(){
   const listContent = document.getElementById('listContent');
   listContent.innerHTML = '<div class="loading">Memuat data...</div>';
   try{
-    const listResult = await window.storage.list('entry:', true);
-    const keys = (listResult && listResult.keys) ? listResult.keys : [];
-    const loaded = [];
-    for(const k of keys){
-      try{
-        const res = await window.storage.get(k, true);
-        if(res && res.value){
-          const parsed = JSON.parse(res.value);
-          parsed._key = k;
-          loaded.push(parsed);
-        }
-      }catch(innerErr){
-        console.warn('Gagal memuat entri', k, innerErr);
-      }
-    }
-    loaded.sort((a,b)=> (a.timestamp||0) - (b.timestamp||0));
-    entries = loaded;
+    const res = await fetch(SHEET_WEBHOOK_URL, { method: 'GET' });
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    entries = (json && json.data) ? json.data : [];
     renderTable();
   }catch(err){
     console.error(err);
-    listContent.innerHTML = '<div class="msg error">Gagal memuat data laporan. Coba muat ulang.</div>';
+    listContent.innerHTML = `
+      <div class="empty-state">
+        <div class="big">🔒</div>
+        <div><strong>Tidak bisa memuat daftar dari sini</strong></div>
+        <p>Browser memblokir permintaan lintas domain ke Google Sheet dari alamat website ini.<br>Data laporan tetap tersimpan — silakan buka Google Sheet lewat tombol di atas untuk melihatnya.</p>
+      </div>`;
   }
 }
 
@@ -532,26 +488,20 @@ function renderTable(){
   }
 
   let rows = '';
-  filtered.forEach((e, idx)=>{
-    const waktu = e.timestamp ? new Date(e.timestamp).toLocaleString('id-ID', {dateStyle:'medium', timeStyle:'short'}) : '-';
+  filtered.forEach((e)=>{
     const files = e.files || [];
     let fileCell = '<span class="no-file">Tidak ada</span>';
     if(files.length > 0){
       fileCell = files.map(f=>{
-        if(f.dataUrl){
-          const isImage = f.type && f.type.startsWith('image/');
-          const thumb = isImage ? `<img class="thumb" src="${f.dataUrl}" alt="bukti">` : '';
-          return `<div style="margin-bottom:6px;">${thumb}<a class="file-link" href="${f.dataUrl}" download="${escapeAttr(f.name)}">⬇ ${escapeHtml(truncate(f.name, 20))}</a></div>`;
-        }
-        return `<div style="margin-bottom:6px;"><span class="file-link" style="background:#F1F0EA;color:var(--muted);">📎 ${escapeHtml(truncate(f.name, 20))} (lihat di Sheet)</span></div>`;
+        return `<div style="margin-bottom:6px;"><a class="file-link" href="${f.url}" target="_blank" rel="noopener">⬇ ${escapeHtml(truncate(f.name || 'file', 20))}</a></div>`;
       }).join('');
     }
     rows += `<tr>
-      <td class="no">${idx+1}</td>
+      <td class="no">${escapeHtml(String(e.no != null ? e.no : ''))}</td>
       <td class="depo">${escapeHtml(e.namaDepo)}</td>
       <td class="uraian">${escapeHtml(e.uraian)}</td>
       <td>${fileCell}</td>
-      <td class="waktu">${waktu}</td>
+      <td class="waktu">${escapeHtml(e.waktu || '-')}</td>
     </tr>`;
   });
 
