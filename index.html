@@ -302,7 +302,7 @@
           <button type="submit" class="btn-primary" id="submitBtn">Kirim Laporan</button>
         </form>
       </div>
-      <p class="footnote">Data laporan disimpan dan dapat dilihat oleh semua orang yang mengakses link ini. Jangan unggah data pribadi/sensitif yang tidak perlu.</p>
+      <p class="footnote">Data laporan disimpan di sini dan juga otomatis tercatat di Google Sheet. Dapat dilihat oleh semua orang yang mengakses link ini — jangan unggah data pribadi/sensitif yang tidak perlu.</p>
     </section>
 
     <!-- LIST TAB -->
@@ -320,6 +320,7 @@
 </div>
 
 <script>
+const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwaN-SOHrKS-G8z0x_0GfSpaIBT4QpW_qjKheDl-SaCXvvkQfVbReH4V9IjLUZquup_/exec';
 let selectedFile = null;
 let entries = [];
 
@@ -411,6 +412,9 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
       throw new Error('Gagal menyimpan data. Coba lagi.');
     }
 
+    // Kirim juga ke Google Sheets (best-effort, tidak menghambat jika gagal/lambat)
+    syncToSheet(entry);
+
     showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
     document.getElementById('namaDepo').value = '';
     document.getElementById('uraian').value = '';
@@ -423,6 +427,27 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
     submitBtn.textContent = 'Kirim Laporan';
   }
 });
+
+function syncToSheet(entry){
+  if(!SHEET_WEBHOOK_URL || SHEET_WEBHOOK_URL.indexOf('PASTE_') === 0) return;
+  try{
+    const payload = {
+      namaDepo: entry.namaDepo,
+      uraian: entry.uraian,
+      fileName: entry.file ? entry.file.name : '',
+      fileType: entry.file ? entry.file.type : '',
+      fileBase64: entry.file ? entry.file.dataUrl : ''
+    };
+    fetch(SHEET_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).catch(err => console.warn('Sinkron ke Google Sheets gagal (data tetap tersimpan di sini):', err));
+  }catch(err){
+    console.warn('Sinkron ke Google Sheets gagal:', err);
+  }
+}
 
 async function loadEntries(){
   const listContent = document.getElementById('listContent');
