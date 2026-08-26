@@ -258,6 +258,31 @@
     width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);
     display:block;margin-bottom:4px;
   }
+  input[type=date]{
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:14px;
+    font-family:inherit;
+    color:var(--text);
+    background:#FCFDFD;
+  }
+  input[type=date]:focus{
+    outline:2px solid var(--teal);
+    outline-offset:1px;
+    border-color:var(--teal);
+  }
+  td.tanggal{color:var(--muted);white-space:nowrap;font-size:12.5px;}
+  td.rtl{min-width:220px;}
+  .rtl-block{display:flex;flex-direction:column;gap:6px;}
+  .rtl-block textarea{min-height:56px;font-size:12.5px;padding:6px 8px;}
+  .rtl-block input[type=date]{padding:6px 8px;font-size:12.5px;}
+  .rtl-block input[type=file]{font-size:11px;max-width:180px;}
+  .rtl-block label.mini{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:0;}
+  .rtl-existing-files{display:flex;flex-wrap:wrap;gap:4px;}
+  .btn-save-rtl{align-self:flex-start;padding:6px 10px;font-size:12px;}
+  .btn-delete{padding:6px 10px;font-size:12px;color:var(--danger);border-color:#F3CFC9;white-space:nowrap;}
+  .btn-delete:hover{background:var(--danger-bg);}
   @media (max-width:600px){
     td.uraian{max-width:160px;}
   }
@@ -287,6 +312,10 @@
             <input type="text" id="namaDepo" placeholder="Contoh: Depo Farmasi Rawat Jalan" required>
           </div>
           <div class="field">
+            <label for="tanggalKendala">Tanggal Kendala</label>
+            <input type="date" id="tanggalKendala" required>
+          </div>
+          <div class="field">
             <label for="uraian">Uraian Kendala</label>
             <textarea id="uraian" placeholder="Jelaskan kendala yang terjadi..." required></textarea>
           </div>
@@ -312,9 +341,9 @@
           <input type="text" id="filterInput" placeholder="Cari nama depo..." oninput="renderTable()">
           <span class="count-pill" id="countPill">0 laporan</span>
           <button class="btn-secondary" onclick="loadEntries()">⟳ Muat ulang</button>
-          <a class="btn-secondary" style="text-decoration:none;" href="https://docs.google.com/spreadsheets/d/1KPF_tQotfN6Hax3Gs-icaZdGSpqg4jkhS6dJVUffWV4/edit?gid=0#gid=0" target="_blank" rel="noopener">Buka Google Sheet ↗</a>
         </div>
-        <p class="footnote" style="margin:-8px 0 12px;">File bukti dukung tersimpan otomatis di Google Drive/Sheet. Untuk mengunduh file, buka Google Sheet di atas.</p>
+        <div id="listMsg"></div>
+        <p class="footnote" style="margin:-8px 0 12px;">File bukti dukung tersimpan otomatis di Google Drive. Klik link file pada kolom untuk mengunduh. Isi RTL (rencana tindak lanjut) dan klik "Simpan RTL" untuk menyimpan.</p>
         <div id="listContent"><div class="loading">Memuat data...</div></div>
       </div>
     </section>
@@ -328,6 +357,15 @@ const MAX_FILE_COUNT = 5;
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25 MB total per laporan
 let selectedFiles = [];
 let entries = [];
+
+function todayInputValue(){
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+document.getElementById('tanggalKendala').value = todayInputValue();
 
 function switchTab(tab){
   document.getElementById('tabForm').style.display = tab==='form' ? 'block':'none';
@@ -396,9 +434,10 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const submitBtn = document.getElementById('submitBtn');
   const namaDepo = document.getElementById('namaDepo').value.trim();
+  const tanggalKendala = document.getElementById('tanggalKendala').value;
   const uraian = document.getElementById('uraian').value.trim();
-  if(!namaDepo || !uraian){
-    showFormMsg('error','Nama Depo dan Uraian Kendala wajib diisi.');
+  if(!namaDepo || !tanggalKendala || !uraian){
+    showFormMsg('error','Nama Depo, Tanggal Kendala, dan Uraian Kendala wajib diisi.');
     return;
   }
 
@@ -422,7 +461,7 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
       });
     }
 
-    const result = await sendToSheet({ namaDepo, uraian, files: filesWithData });
+    const result = await sendToSheet({ action:'create', namaDepo, tanggal: tanggalKendala, uraian, files: filesWithData });
 
     if(result.fileWarnings && result.fileWarnings.length){
       showFormMsg('error', 'Laporan tersimpan, tapi ada file yang gagal diunggah: ' + result.fileWarnings.join('; '));
@@ -431,6 +470,7 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
     }
     document.getElementById('namaDepo').value = '';
     document.getElementById('uraian').value = '';
+    document.getElementById('tanggalKendala').value = todayInputValue();
     selectedFiles = [];
     renderFileChosen();
   }catch(err){
@@ -471,6 +511,74 @@ async function sendToSheet(payload){
 
   return json;
 }
+
+function showListMsg(type, text){
+  const el = document.getElementById('listMsg');
+  el.innerHTML = `<div class="msg ${type}">${escapeHtml(text)}</div>`;
+  if(type==='success'){ setTimeout(()=>{ el.innerHTML=''; }, 5000); }
+}
+
+// 'DD/MM/YYYY' -> 'YYYY-MM-DD' (untuk value input type=date)
+function toDateInputValue(str){
+  if(!str) return '';
+  const parts = String(str).split('/');
+  if(parts.length !== 3) return '';
+  return `${parts[2]}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`;
+}
+
+async function deleteEntry(id){
+  if(!confirm('Yakin ingin menghapus laporan ini? Data yang dihapus tidak bisa dikembalikan.')) return;
+  try{
+    await sendToSheet({ action:'delete', id });
+    showListMsg('success','Laporan berhasil dihapus.');
+    await loadEntries();
+  }catch(err){
+    showListMsg('error', 'Gagal menghapus laporan: ' + err.message);
+  }
+}
+
+async function saveRtl(id, btnEl){
+  const textarea = document.querySelector(`.rtl-input[data-id="${id}"]`);
+  const dateInput = document.querySelector(`.rtl-date[data-id="${id}"]`);
+  const fileInput = document.querySelector(`.rtl-file[data-id="${id}"]`);
+  const rtl = textarea ? textarea.value.trim() : '';
+  const selesaiRtl = dateInput ? dateInput.value : '';
+
+  const originalText = btnEl.textContent;
+  btnEl.disabled = true;
+  btnEl.textContent = 'Menyimpan...';
+
+  try{
+    const payload = { action:'update', id, rtl, selesaiRtl };
+    if(fileInput && fileInput.files && fileInput.files[0]){
+      const f = fileInput.files[0];
+      if(f.size > MAX_FILE_SIZE){
+        throw new Error('File RTL lebih dari 10 MB, tidak diunggah.');
+      }
+      const dataUrl = await fileToBase64(f);
+      payload.files = [{ name: f.name, type: f.type || 'application/octet-stream', base64: dataUrl }];
+    }
+    const result = await sendToSheet(payload);
+    if(result.fileWarnings && result.fileWarnings.length){
+      showListMsg('error', 'RTL tersimpan, tapi file gagal diunggah: ' + result.fileWarnings.join('; '));
+    } else {
+      showListMsg('success','RTL berhasil disimpan.');
+    }
+    await loadEntries();
+  }catch(err){
+    showListMsg('error', 'Gagal menyimpan RTL: ' + err.message);
+  }finally{
+    btnEl.disabled = false;
+    btnEl.textContent = originalText;
+  }
+}
+
+document.getElementById('listContent').addEventListener('click', (e)=>{
+  const delBtn = e.target.closest('.btn-delete');
+  if(delBtn){ deleteEntry(delBtn.dataset.id); return; }
+  const saveBtn = e.target.closest('.btn-save-rtl');
+  if(saveBtn){ saveRtl(saveBtn.dataset.id, saveBtn); return; }
+});
 
 async function loadEntries(){
   const listContent = document.getElementById('listContent');
@@ -518,12 +626,35 @@ function renderTable(){
         return `<div style="margin-bottom:6px;"><a class="file-link" href="${f.url}" target="_blank" rel="noopener">⬇ ${escapeHtml(truncate(f.name || 'file', 20))}</a></div>`;
       }).join('');
     }
+
+    const fileRtl = e.fileRtl || [];
+    let fileRtlLinks = '';
+    if(fileRtl.length > 0){
+      fileRtlLinks = `<div class="rtl-existing-files">${fileRtl.map(f=>{
+        return `<a class="file-link" href="${f.url}" target="_blank" rel="noopener">⬇ ${escapeHtml(truncate(f.name || 'file', 16))}</a>`;
+      }).join('')}</div>`;
+    }
+
+    const rtlBlock = `
+      <div class="rtl-block">
+        <textarea class="rtl-input" data-id="${e.id}" placeholder="Tulis RTL / tindak lanjut...">${escapeHtml(e.rtl || '')}</textarea>
+        <label class="mini">Selesai RTL</label>
+        <input type="date" class="rtl-date" data-id="${e.id}" value="${toDateInputValue(e.selesaiRtl)}">
+        <label class="mini">File RTL (opsional)</label>
+        <input type="file" class="rtl-file" data-id="${e.id}">
+        ${fileRtlLinks}
+        <button type="button" class="btn-secondary btn-save-rtl" data-id="${e.id}">Simpan RTL</button>
+      </div>`;
+
     rows += `<tr>
       <td class="no">${escapeHtml(String(e.no != null ? e.no : ''))}</td>
       <td class="depo">${escapeHtml(e.namaDepo)}</td>
+      <td class="tanggal">${escapeHtml(e.tanggal || '-')}</td>
       <td class="uraian">${escapeHtml(e.uraian)}</td>
       <td>${fileCell}</td>
+      <td class="rtl">${rtlBlock}</td>
       <td class="waktu">${escapeHtml(e.waktu || '-')}</td>
+      <td><button type="button" class="btn-secondary btn-delete" data-id="${e.id}">Hapus</button></td>
     </tr>`;
   });
 
@@ -534,9 +665,12 @@ function renderTable(){
         <tr>
           <th>No</th>
           <th>Nama Depo</th>
+          <th>Tanggal</th>
           <th>Uraian Kendala</th>
           <th>Bukti Dukung</th>
-          <th>Waktu</th>
+          <th>RTL &amp; Tindak Lanjut</th>
+          <th>Waktu Lapor</th>
+          <th>Aksi</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
