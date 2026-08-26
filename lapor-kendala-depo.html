@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lapor Kendala Depo</title>
+<style>
+  :root{
+    --navy:#0F2A3D;
+    --navy-2:#16384F;
+    --bg:#F5F7F8;
+    --card:#FFFFFF;
+    --teal:#0D8C7E;
+    --teal-dark:#096B60;
+    --line:#E2E8ED;
+    --text:#1C2B36;
+    --muted:#647685;
+    --danger:#C0392B;
+    --danger-bg:#FCEBE9;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);
+    color:var(--text);
+  }
+  .app{max-width:960px;margin:0 auto;padding:0 0 60px;}
+  header.top{
+    background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);
+    color:#fff;
+    padding:28px 24px 22px;
+    border-radius:0 0 18px 18px;
+  }
+  header.top .eyebrow{
+    font-size:12px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:#9FC9C0;
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  header.top h1{
+    margin:0 0 6px;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  header.top p{
+    margin:0;
+    font-size:13.5px;
+    color:#C7D6DD;
+    line-height:1.5;
+    max-width:560px;
+  }
+  .tabs{
+    display:flex;
+    gap:6px;
+    margin:18px 24px 0;
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:4px;
+    position:relative;
+    top:-16px;
+    box-shadow:0 2px 10px rgba(15,42,61,0.06);
+  }
+  .tab-btn{
+    flex:1;
+    border:none;
+    background:transparent;
+    padding:11px 10px;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--muted);
+    border-radius:9px;
+    cursor:pointer;
+    transition:background .15s, color .15s;
+  }
+  .tab-btn.active{
+    background:var(--navy);
+    color:#fff;
+  }
+  main{padding:0 24px;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:22px;
+    margin-bottom:16px;
+  }
+  .field{margin-bottom:16px;}
+  label{
+    display:block;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+    margin-bottom:6px;
+  }
+  label .opt{color:var(--muted);font-weight:400;}
+  input[type=text], textarea{
+    width:100%;
+    padding:10px 12px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    font-size:14px;
+    font-family:inherit;
+    color:var(--text);
+    background:#FCFDFD;
+  }
+  input[type=text]:focus, textarea:focus{
+    outline:2px solid var(--teal);
+    outline-offset:1px;
+    border-color:var(--teal);
+  }
+  textarea{min-height:96px;resize:vertical;}
+  .file-drop{
+    border:1.5px dashed var(--line);
+    border-radius:8px;
+    padding:16px;
+    text-align:center;
+    background:#FCFDFD;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .file-drop:hover{border-color:var(--teal);}
+  .file-drop input{display:none;}
+  .file-drop .hint{font-size:12.5px;color:var(--muted);margin-top:4px;}
+  .file-chosen{
+    margin-top:10px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    background:#EEF6F4;
+    color:var(--teal-dark);
+    padding:8px 10px;
+    border-radius:6px;
+  }
+  .file-chosen button{
+    margin-left:auto;
+    border:none;
+    background:none;
+    color:var(--danger);
+    cursor:pointer;
+    font-size:12px;
+    font-weight:600;
+  }
+  .btn-primary{
+    background:var(--teal);
+    color:#fff;
+    border:none;
+    padding:11px 20px;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .btn-primary:hover{background:var(--teal-dark);}
+  .btn-primary:disabled{background:#9FBAB4;cursor:not-allowed;}
+  .btn-secondary{
+    background:#fff;
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:9px 14px;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .btn-secondary:hover{border-color:var(--teal);color:var(--teal-dark);}
+  .msg{
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:13px;
+    margin-bottom:14px;
+  }
+  .msg.success{background:#EAF6ED;color:#1E7A34;border:1px solid #CDEBD3;}
+  .msg.error{background:var(--danger-bg);color:var(--danger);border:1px solid #F3CFC9;}
+  .list-toolbar{
+    display:flex;
+    gap:10px;
+    align-items:center;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .list-toolbar input[type=text]{max-width:260px;}
+  .count-pill{
+    background:#EEF6F4;
+    color:var(--teal-dark);
+    font-size:12.5px;
+    font-weight:600;
+    padding:5px 10px;
+    border-radius:999px;
+  }
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  thead th{
+    text-align:left;
+    font-size:11.5px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--muted);
+    border-bottom:1.5px solid var(--line);
+    padding:8px 10px;
+    white-space:nowrap;
+  }
+  tbody td{
+    padding:12px 10px;
+    border-bottom:1px solid var(--line);
+    vertical-align:top;
+  }
+  tbody tr:hover{background:#FAFBFC;}
+  td.no{width:36px;color:var(--muted);font-weight:600;}
+  td.depo{font-weight:600;min-width:110px;}
+  td.uraian{max-width:320px;line-height:1.45;}
+  td.waktu{color:var(--muted);white-space:nowrap;font-size:12px;}
+  .file-link{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    color:var(--teal-dark);
+    font-weight:600;
+    text-decoration:none;
+    font-size:12.5px;
+    background:#EEF6F4;
+    padding:5px 9px;
+    border-radius:6px;
+    white-space:nowrap;
+  }
+  .file-link:hover{background:#DEEFEA;}
+  .no-file{color:var(--muted);font-size:12px;font-style:italic;}
+  .empty-state{
+    text-align:center;
+    padding:50px 20px;
+    color:var(--muted);
+  }
+  .empty-state .big{font-size:32px;margin-bottom:8px;}
+  .empty-state p{font-size:13.5px;margin:4px 0 0;}
+  .loading{
+    text-align:center;
+    padding:40px;
+    color:var(--muted);
+    font-size:13.5px;
+  }
+  .footnote{
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:10px;
+    line-height:1.5;
+  }
+  .thumb{
+    width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);
+    display:block;margin-bottom:4px;
+  }
+  @media (max-width:600px){
+    td.uraian{max-width:160px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="eyebrow">Koordinasi Depo</div>
+    <h1>Lapor Kendala Depo</h1>
+    <p>Isi kendala yang terjadi di depo Anda. Semua koordinator yang membuka link ini dapat melihat daftar laporan yang masuk.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tabFormBtn" onclick="switchTab('form')">Isi Laporan</button>
+    <button class="tab-btn" id="tabListBtn" onclick="switchTab('list')">Daftar Laporan</button>
+  </div>
+
+  <main>
+    <!-- FORM TAB -->
+    <section id="tabForm">
+      <div class="card">
+        <div id="formMsg"></div>
+        <form id="reportForm">
+          <div class="field">
+            <label for="namaDepo">Nama Depo</label>
+            <input type="text" id="namaDepo" placeholder="Contoh: Depo Cikarang" required>
+          </div>
+          <div class="field">
+            <label for="uraian">Uraian Kendala</label>
+            <textarea id="uraian" placeholder="Jelaskan kendala yang terjadi..." required></textarea>
+          </div>
+          <div class="field">
+            <label>Bukti Dukung <span class="opt">(opsional, semua format file, maks 3 MB)</span></label>
+            <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
+              <input type="file" id="fileInput">
+              <div>Klik untuk pilih file</div>
+              <div class="hint">Foto, dokumen, PDF, dll — maksimal 3 MB</div>
+            </div>
+            <div id="fileChosenWrap"></div>
+          </div>
+          <button type="submit" class="btn-primary" id="submitBtn">Kirim Laporan</button>
+        </form>
+      </div>
+      <p class="footnote">Data laporan disimpan dan dapat dilihat oleh semua orang yang mengakses link ini. Jangan unggah data pribadi/sensitif yang tidak perlu.</p>
+    </section>
+
+    <!-- LIST TAB -->
+    <section id="tabList" style="display:none;">
+      <div class="card">
+        <div class="list-toolbar">
+          <input type="text" id="filterInput" placeholder="Cari nama depo..." oninput="renderTable()">
+          <span class="count-pill" id="countPill">0 laporan</span>
+          <button class="btn-secondary" onclick="loadEntries()">⟳ Muat ulang</button>
+        </div>
+        <div id="listContent"><div class="loading">Memuat data...</div></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+let selectedFile = null;
+let entries = [];
+
+function switchTab(tab){
+  document.getElementById('tabForm').style.display = tab==='form' ? 'block':'none';
+  document.getElementById('tabList').style.display = tab==='list' ? 'block':'none';
+  document.getElementById('tabFormBtn').classList.toggle('active', tab==='form');
+  document.getElementById('tabListBtn').classList.toggle('active', tab==='list');
+  if(tab==='list') loadEntries();
+}
+
+document.getElementById('fileInput').addEventListener('change', (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  if(file.size > 3*1024*1024){
+    showFormMsg('error','Ukuran file terlalu besar. Maksimal 3 MB.');
+    e.target.value = '';
+    selectedFile = null;
+    renderFileChosen();
+    return;
+  }
+  selectedFile = file;
+  renderFileChosen();
+});
+
+function renderFileChosen(){
+  const wrap = document.getElementById('fileChosenWrap');
+  if(!selectedFile){ wrap.innerHTML=''; return; }
+  const sizeKb = (selectedFile.size/1024).toFixed(0);
+  wrap.innerHTML = `<div class="file-chosen">📎 ${escapeHtml(selectedFile.name)} (${sizeKb} KB)<button type="button" onclick="clearFile()">Hapus</button></div>`;
+}
+
+function clearFile(){
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  renderFileChosen();
+}
+
+function showFormMsg(type, text){
+  const el = document.getElementById('formMsg');
+  el.innerHTML = `<div class="msg ${type}">${escapeHtml(text)}</div>`;
+  if(type==='success'){ setTimeout(()=>{ el.innerHTML=''; }, 4000); }
+}
+
+function fileToBase64(file){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result);
+    reader.onerror = ()=> reject(new Error('Gagal membaca file'));
+    reader.readAsDataURL(file);
+  });
+}
+
+document.getElementById('reportForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const submitBtn = document.getElementById('submitBtn');
+  const namaDepo = document.getElementById('namaDepo').value.trim();
+  const uraian = document.getElementById('uraian').value.trim();
+  if(!namaDepo || !uraian){
+    showFormMsg('error','Nama Depo dan Uraian Kendala wajib diisi.');
+    return;
+  }
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Mengirim...';
+
+  try{
+    let fileData = null;
+    if(selectedFile){
+      const dataUrl = await fileToBase64(selectedFile);
+      fileData = {
+        name: selectedFile.name,
+        type: selectedFile.type || 'application/octet-stream',
+        size: selectedFile.size,
+        dataUrl: dataUrl
+      };
+    }
+
+    const entry = {
+      namaDepo,
+      uraian,
+      file: fileData,
+      timestamp: Date.now()
+    };
+
+    const key = 'entry:' + Date.now() + '-' + Math.random().toString(36).slice(2,9);
+    const result = await window.storage.set(key, JSON.stringify(entry), true);
+    if(!result){
+      throw new Error('Gagal menyimpan data. Coba lagi.');
+    }
+
+    showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
+    document.getElementById('namaDepo').value = '';
+    document.getElementById('uraian').value = '';
+    clearFile();
+  }catch(err){
+    console.error(err);
+    showFormMsg('error', err.message && err.message.includes('5MB') ? 'File terlalu besar untuk disimpan. Gunakan file di bawah 3 MB.' : 'Terjadi kesalahan saat mengirim laporan. Coba lagi.');
+  }finally{
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Kirim Laporan';
+  }
+});
+
+async function loadEntries(){
+  const listContent = document.getElementById('listContent');
+  listContent.innerHTML = '<div class="loading">Memuat data...</div>';
+  try{
+    const listResult = await window.storage.list('entry:', true);
+    const keys = (listResult && listResult.keys) ? listResult.keys : [];
+    const loaded = [];
+    for(const k of keys){
+      try{
+        const res = await window.storage.get(k, true);
+        if(res && res.value){
+          const parsed = JSON.parse(res.value);
+          parsed._key = k;
+          loaded.push(parsed);
+        }
+      }catch(innerErr){
+        console.warn('Gagal memuat entri', k, innerErr);
+      }
+    }
+    loaded.sort((a,b)=> (a.timestamp||0) - (b.timestamp||0));
+    entries = loaded;
+    renderTable();
+  }catch(err){
+    console.error(err);
+    listContent.innerHTML = '<div class="msg error">Gagal memuat data laporan. Coba muat ulang.</div>';
+  }
+}
+
+function renderTable(){
+  const listContent = document.getElementById('listContent');
+  const filter = document.getElementById('filterInput').value.trim().toLowerCase();
+  const filtered = filter ? entries.filter(e => (e.namaDepo||'').toLowerCase().includes(filter)) : entries;
+
+  document.getElementById('countPill').textContent = filtered.length + ' laporan';
+
+  if(filtered.length === 0){
+    listContent.innerHTML = `
+      <div class="empty-state">
+        <div class="big">🗂️</div>
+        <div><strong>Belum ada laporan</strong></div>
+        <p>Laporan yang dikirim koordinator akan muncul di sini.</p>
+      </div>`;
+    return;
+  }
+
+  let rows = '';
+  filtered.forEach((e, idx)=>{
+    const waktu = e.timestamp ? new Date(e.timestamp).toLocaleString('id-ID', {dateStyle:'medium', timeStyle:'short'}) : '-';
+    let fileCell = '<span class="no-file">Tidak ada</span>';
+    if(e.file && e.file.dataUrl){
+      const isImage = e.file.type && e.file.type.startsWith('image/');
+      const thumb = isImage ? `<img class="thumb" src="${e.file.dataUrl}" alt="bukti">` : '';
+      fileCell = `${thumb}<a class="file-link" href="${e.file.dataUrl}" download="${escapeAttr(e.file.name)}">⬇ ${escapeHtml(truncate(e.file.name, 20))}</a>`;
+    }
+    rows += `<tr>
+      <td class="no">${idx+1}</td>
+      <td class="depo">${escapeHtml(e.namaDepo)}</td>
+      <td class="uraian">${escapeHtml(e.uraian)}</td>
+      <td>${fileCell}</td>
+      <td class="waktu">${waktu}</td>
+    </tr>`;
+  });
+
+  listContent.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table>
+      <thead>
+        <tr>
+          <th>No</th>
+          <th>Nama Depo</th>
+          <th>Uraian Kendala</th>
+          <th>Bukti Dukung</th>
+          <th>Waktu</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    </div>`;
+}
+
+function truncate(str, n){
+  return str.length > n ? str.slice(0,n-1)+'…' : str;
+}
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+function escapeAttr(str){
+  return (str||'').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
