@@ -422,32 +422,54 @@ document.getElementById('reportForm').addEventListener('submit', async (e)=>{
       });
     }
 
-    await sendToSheet({ namaDepo, uraian, files: filesWithData });
+    const result = await sendToSheet({ namaDepo, uraian, files: filesWithData });
 
-    showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
+    if(result.fileWarnings && result.fileWarnings.length){
+      showFormMsg('error', 'Laporan tersimpan, tapi ada file yang gagal diunggah: ' + result.fileWarnings.join('; '));
+    } else {
+      showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
+    }
     document.getElementById('namaDepo').value = '';
     document.getElementById('uraian').value = '';
     selectedFiles = [];
     renderFileChosen();
   }catch(err){
     console.error(err);
-    showFormMsg('error','Gagal mengirim laporan. Periksa koneksi internet Anda dan coba lagi.');
+    showFormMsg('error', 'Laporan gagal tersimpan (' + err.message + '). Silakan cek Google Sheet, dan kirim ulang jika laporan belum muncul di sana.');
   }finally{
     submitBtn.disabled = false;
     submitBtn.textContent = 'Kirim Laporan';
   }
 });
 
-function sendToSheet(payload){
-  // mode 'no-cors' dipakai karena Google Apps Script tidak selalu mengirim header
-  // CORS saat diakses dari domain lain. Ini membuat request tetap terkirim dan
-  // diproses di server meski responsnya tidak bisa dibaca oleh browser.
-  return fetch(SHEET_WEBHOOK_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(payload)
-  });
+async function sendToSheet(payload){
+  let res;
+  try{
+    res = await fetch(SHEET_WEBHOOK_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari preflight CORS
+      body: JSON.stringify(payload)
+    });
+  }catch(networkErr){
+    throw new Error('Tidak bisa menghubungi server (masalah jaringan atau CORS)');
+  }
+
+  if(!res.ok){
+    throw new Error('Server merespons dengan status ' + res.status);
+  }
+
+  let json;
+  try{
+    json = await res.json();
+  }catch(parseErr){
+    throw new Error('Respons server tidak valid');
+  }
+
+  if(json.status !== 'ok'){
+    throw new Error(json.message || 'Server menolak laporan ini');
+  }
+
+  return json;
 }
 
 async function loadEntries(){
