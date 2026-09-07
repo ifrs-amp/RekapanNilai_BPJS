@@ -141,6 +141,11 @@
   tfoot td:first-child{text-align:left;}
   .empty{padding:36px 20px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
 
+  .storage-warning{
+    display:none;background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad);
+    border-radius:6px;padding:10px 14px;font-size:12.5px;margin:0 0 16px;
+  }
+
   /* ---- Rekap table ---- */
   .status-pill{padding:4px 10px;border-radius:4px;font-size:12px;font-weight:600;display:inline-block;}
   .status-ok{background:var(--good-bg);color:var(--good);}
@@ -181,6 +186,10 @@
     <button data-view="diajukan">Diajukan ke BPJS</button>
     <button data-view="balasan">BA balasan BPJS</button>
   </nav>
+
+  <div class="storage-warning" id="storage-warning">
+    Penyimpanan otomatis tidak tersedia di browser ini, sehingga data bisa hilang saat halaman ditutup atau di-refresh. Gunakan tombol "Unduh CSV" secara berkala untuk mencadangkan data Anda.
+  </div>
 
   <!-- ================= RINGKASAN ================= -->
   <section class="view active" id="view-rekap">
@@ -263,21 +272,58 @@ let FILTER = {
 let FORM_OPEN = {diajukan:false, balasan:false};
 
 /* ---------------- storage ---------------- */
+const HAS_STORAGE_API = (typeof window !== "undefined") && !!window.storage &&
+  typeof window.storage.get === "function" && typeof window.storage.set === "function";
+
 async function loadAll(){
   for(const type of ["diajukan","balasan"]){
-    try{
-      const res = await window.storage.get(STORE_KEYS[type], false);
-      DATA[type] = res && res.value ? JSON.parse(res.value) : [];
-    }catch(e){
-      DATA[type] = [];
+    let loaded = null;
+
+    if(HAS_STORAGE_API){
+      try{
+        const res = await window.storage.get(STORE_KEYS[type], false);
+        if(res && res.value) loaded = JSON.parse(res.value);
+      }catch(e){ /* belum ada data tersimpan lewat storage bawaan, lanjut cek cadangan */ }
     }
+
+    if(loaded === null){
+      try{
+        const raw = window.localStorage.getItem(STORE_KEYS[type]);
+        if(raw) loaded = JSON.parse(raw);
+      }catch(e){ /* localStorage tidak tersedia di lingkungan ini */ }
+    }
+
+    DATA[type] = loaded || [];
   }
+  maybeShowStorageWarning();
 }
+
 async function save(type){
-  try{
-    await window.storage.set(STORE_KEYS[type], JSON.stringify(DATA[type]), false);
-  }catch(e){
-    console.error("Gagal menyimpan data", e);
+  const json = JSON.stringify(DATA[type]);
+  let ok = false;
+
+  if(HAS_STORAGE_API){
+    try{ await window.storage.set(STORE_KEYS[type], json, false); ok = true; }
+    catch(e){ /* lanjut coba cadangan */ }
+  }
+  try{ window.localStorage.setItem(STORE_KEYS[type], json); ok = true; }
+  catch(e){ /* lanjut, jangan hentikan aplikasi */ }
+
+  if(!ok) maybeShowStorageWarning(true);
+}
+
+function maybeShowStorageWarning(force){
+  const testKey = "__klaim_bpjs_test__";
+  let works = HAS_STORAGE_API;
+  if(!works){
+    try{ window.localStorage.setItem(testKey, "1"); window.localStorage.removeItem(testKey); works = true; }
+    catch(e){ works = false; }
+  }
+  const bar = document.getElementById("storage-warning");
+  if(!works || force){
+    if(bar) bar.style.display = "block";
+  }else if(bar){
+    bar.style.display = "none";
   }
 }
 
