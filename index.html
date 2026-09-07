@@ -34,10 +34,10 @@
   .tnum{font-variant-numeric:tabular-nums;}
 
   /* ---- App shell ---- */
-  .app{max-width:1180px;margin:0 auto;padding:0 24px 64px;}
+  .app{max-width:none;margin:0;padding:14px 28px 32px;}
   .topbar{
     display:flex;align-items:baseline;justify-content:space-between;
-    padding:28px 0 18px;border-bottom:1px solid var(--line);
+    padding:6px 0 14px;border-bottom:1px solid var(--line);
     flex-wrap:wrap;gap:12px;
   }
   .brand{display:flex;align-items:baseline;gap:10px;}
@@ -56,7 +56,7 @@
   }
   nav.tabs button.active{color:var(--primary-dark);border-bottom-color:var(--primary);}
 
-  section.view{display:none;padding-top:26px;}
+  section.view{display:none;padding-top:16px;}
   section.view.active{display:block;}
 
   h2.view-title{font-size:20px;margin:0 0 4px;font-weight:700;color:var(--primary-dark);}
@@ -120,7 +120,6 @@
   thead th{
     text-align:right;padding:10px 12px;background:var(--surface-alt);
     color:var(--ink-soft);font-weight:600;font-size:12px;border-bottom:1px solid var(--line);
-    white-space:nowrap;
   }
   thead th:first-child,thead th:nth-child(2),thead th:nth-child(3){text-align:left;}
   tbody td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
@@ -174,7 +173,6 @@
       <span class="mark"></span>
       <div>
         <h1>Klaim BPJS</h1>
-        <div class="sub">Pelacakan tagihan diajukan &amp; BA balasan</div>
       </div>
     </div>
   </div>
@@ -400,9 +398,6 @@ function renderInputView(type){
       <button class="btn btn-ghost" id="${type}-print">Cetak tampilan ini</button>
       <button class="btn btn-primary" id="${type}-toggle-form">${FORM_OPEN[type] ? "Tutup form" : "+ Tambah data"}</button>
     </div>
-    <p style="margin:-6px 0 16px;color:var(--ink-soft);font-size:12.5px;">
-      "Salin untuk Google Sheets" menyalin data yang sedang tampil (sesuai filter) siap tempel langsung ke sel di spreadsheet Anda.
-    </p>
     <div id="${type}-formwrap"></div>
     <div class="tablewrap"><div id="${type}-tablewrap"></div></div>
   `;
@@ -540,7 +535,7 @@ function renderTable(type){
         <tr>
           <th style="text-align:left">Bulan</th>
           <th style="text-align:left">Keterangan</th>
-          ${CATS.map(c=>`<th>${c.label}<br>psn / nilai</th>`).join("")}
+          ${CATS.map(c=>`<th>${c.label}<br>Jumlah Pasien / Nilai</th>`).join("")}
           <th>Total</th>
           <th style="text-align:left"></th>
         </tr>
