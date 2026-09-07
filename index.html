@@ -1,694 +1,631 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lapor Kendala Depo</title>
+<meta charset="UTF-8" />
+<title>Klaim BPJS</title>
 <style>
   :root{
-    --navy:#0F2A3D;
-    --navy-2:#16384F;
-    --bg:#F5F7F8;
-    --card:#FFFFFF;
-    --teal:#0D8C7E;
-    --teal-dark:#096B60;
-    --line:#E2E8ED;
-    --text:#1C2B36;
-    --muted:#647685;
-    --danger:#C0392B;
-    --danger-bg:#FCEBE9;
-    --radius:10px;
+    --bg:#F5F6F3;
+    --surface:#FFFFFF;
+    --surface-alt:#EEF1EE;
+    --ink:#1C2420;
+    --ink-soft:#5B6560;
+    --primary:#12414A;
+    --primary-dark:#0B2E35;
+    --accent:#B8843C;
+    --accent-bg:#FBF2E3;
+    --good:#3F7D58;
+    --good-bg:#E9F3EC;
+    --warn:#B8843C;
+    --warn-bg:#FBF2E3;
+    --bad:#B5473A;
+    --bad-bg:#FBEAE7;
+    --line:#DCE1DC;
   }
   *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
   body{
-    margin:0;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);
-    color:var(--text);
+    color:var(--ink);
+    font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px;
+    line-height:1.45;
   }
-  .app{max-width:960px;margin:0 auto;padding:0 0 60px;}
-  header.top{
-    background:linear-gradient(135deg,var(--navy) 0%,var(--navy-2) 100%);
-    color:#fff;
-    padding:28px 24px 22px;
-    border-radius:0 0 18px 18px;
+  .tnum{font-variant-numeric:tabular-nums;}
+
+  /* ---- App shell ---- */
+  .app{max-width:1180px;margin:0 auto;padding:0 24px 64px;}
+  .topbar{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:28px 0 18px;border-bottom:1px solid var(--line);
+    flex-wrap:wrap;gap:12px;
   }
-  header.top .eyebrow{
-    font-size:12px;
-    letter-spacing:.08em;
-    text-transform:uppercase;
-    color:#9FC9C0;
-    font-weight:600;
-    margin-bottom:6px;
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand .mark{
+    width:10px;height:10px;border-radius:2px;background:var(--primary);
+    display:inline-block;transform:translateY(-1px);
   }
-  header.top h1{
-    margin:0 0 6px;
-    font-size:22px;
-    font-weight:700;
-    letter-spacing:-0.01em;
+  .brand h1{font-size:19px;margin:0;font-weight:700;letter-spacing:-0.01em;color:var(--primary-dark);}
+  .brand .sub{color:var(--ink-soft);font-size:13px;}
+
+  nav.tabs{display:flex;gap:26px;margin-top:8px;}
+  nav.tabs button{
+    background:none;border:none;padding:14px 0 12px;font-size:14.5px;font-weight:600;
+    color:var(--ink-soft);cursor:pointer;border-bottom:2px solid transparent;
+    font-family:inherit;
   }
-  header.top p{
-    margin:0;
-    font-size:13.5px;
-    color:#C7D6DD;
-    line-height:1.5;
-    max-width:560px;
-  }
-  .tabs{
-    display:flex;
-    gap:6px;
-    margin:18px 24px 0;
-    background:var(--card);
-    border:1px solid var(--line);
-    border-radius:12px;
-    padding:4px;
-    position:relative;
-    top:-16px;
-    box-shadow:0 2px 10px rgba(15,42,61,0.06);
-  }
-  .tab-btn{
-    flex:1;
-    border:none;
-    background:transparent;
-    padding:11px 10px;
-    font-size:13.5px;
-    font-weight:600;
-    color:var(--muted);
-    border-radius:9px;
-    cursor:pointer;
-    transition:background .15s, color .15s;
-  }
-  .tab-btn.active{
-    background:var(--navy);
-    color:#fff;
-  }
-  main{padding:0 24px;}
+  nav.tabs button.active{color:var(--primary-dark);border-bottom-color:var(--primary);}
+
+  section.view{display:none;padding-top:26px;}
+  section.view.active{display:block;}
+
+  h2.view-title{font-size:20px;margin:0 0 4px;font-weight:700;color:var(--primary-dark);}
+  p.view-desc{margin:0 0 22px;color:var(--ink-soft);font-size:13.5px;}
+
+  /* ---- Cards / summary ---- */
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
   .card{
-    background:var(--card);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:22px;
-    margin-bottom:16px;
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;
+    padding:16px 18px;
   }
-  .field{margin-bottom:16px;}
-  label{
-    display:block;
-    font-size:13px;
-    font-weight:600;
-    color:var(--text);
-    margin-bottom:6px;
+  .card .label{font-size:12.5px;color:var(--ink-soft);margin-bottom:6px;}
+  .card .value{font-size:22px;font-weight:700;color:var(--primary-dark);}
+  .card.diff .value.pos{color:var(--bad);}
+  .card.diff .value.zero{color:var(--good);}
+
+  /* ---- Toolbar / filters ---- */
+  .toolbar{
+    display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;
+    padding:14px 16px;margin-bottom:16px;
   }
-  label .opt{color:var(--muted);font-weight:400;}
-  input[type=text], textarea{
-    width:100%;
-    padding:10px 12px;
-    border:1px solid var(--line);
-    border-radius:8px;
-    font-size:14px;
-    font-family:inherit;
-    color:var(--text);
-    background:#FCFDFD;
+  .field{display:flex;flex-direction:column;gap:5px;}
+  .field label{font-size:12px;color:var(--ink-soft);font-weight:600;}
+  select,input[type=number],input[type=text]{
+    font-family:inherit;font-size:13.5px;padding:8px 10px;border:1px solid var(--line);
+    border-radius:5px;background:var(--surface);color:var(--ink);min-width:120px;
   }
-  input[type=text]:focus, textarea:focus{
-    outline:2px solid var(--teal);
-    outline-offset:1px;
-    border-color:var(--teal);
+  select:focus,input:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .spacer{flex:1;}
+
+  button.btn{
+    font-family:inherit;font-size:13.5px;font-weight:600;padding:9px 16px;
+    border-radius:5px;border:1px solid transparent;cursor:pointer;
   }
-  textarea{min-height:96px;resize:vertical;}
-  .file-drop{
-    border:1.5px dashed var(--line);
-    border-radius:8px;
-    padding:16px;
-    text-align:center;
-    background:#FCFDFD;
-    cursor:pointer;
-    transition:border-color .15s, background .15s;
+  button.btn-primary{background:var(--primary);color:#fff;}
+  button.btn-primary:hover{background:var(--primary-dark);}
+  button.btn-ghost{background:var(--surface);color:var(--primary-dark);border-color:var(--line);}
+  button.btn-ghost:hover{background:var(--surface-alt);}
+  button.btn-danger-ghost{background:var(--surface);color:var(--bad);border-color:var(--line);}
+  button.btn-danger-ghost:hover{background:var(--bad-bg);}
+
+  /* ---- Entry form ---- */
+  .formcard{
+    background:var(--surface);border:1px solid var(--line);border-radius:6px;
+    padding:18px 18px 16px;margin-bottom:18px;
   }
-  .file-drop:hover{border-color:var(--teal);}
-  .file-drop input{display:none;}
-  .file-drop .hint{font-size:12.5px;color:var(--muted);margin-top:4px;}
-  .file-chosen{
-    margin-top:10px;
-    display:flex;
-    align-items:center;
-    gap:8px;
-    font-size:13px;
-    background:#EEF6F4;
-    color:var(--teal-dark);
-    padding:8px 10px;
-    border-radius:6px;
-  }
-  .file-chosen button{
-    margin-left:auto;
-    border:none;
-    background:none;
-    color:var(--danger);
-    cursor:pointer;
-    font-size:12px;
-    font-weight:600;
-  }
-  .btn-primary{
-    background:var(--teal);
-    color:#fff;
-    border:none;
-    padding:11px 20px;
-    border-radius:8px;
-    font-size:14px;
-    font-weight:600;
-    cursor:pointer;
-    transition:background .15s;
-  }
-  .btn-primary:hover{background:var(--teal-dark);}
-  .btn-primary:disabled{background:#9FBAB4;cursor:not-allowed;}
-  .btn-secondary{
-    background:#fff;
-    border:1px solid var(--line);
-    color:var(--text);
-    padding:9px 14px;
-    border-radius:8px;
-    font-size:13px;
-    font-weight:600;
-    cursor:pointer;
-  }
-  .btn-secondary:hover{border-color:var(--teal);color:var(--teal-dark);}
-  .msg{
-    padding:10px 12px;
-    border-radius:8px;
-    font-size:13px;
-    margin-bottom:14px;
-  }
-  .msg.success{background:#EAF6ED;color:#1E7A34;border:1px solid #CDEBD3;}
-  .msg.error{background:var(--danger-bg);color:var(--danger);border:1px solid #F3CFC9;}
-  .list-toolbar{
-    display:flex;
-    gap:10px;
-    align-items:center;
-    margin-bottom:14px;
-    flex-wrap:wrap;
-  }
-  .list-toolbar input[type=text]{max-width:260px;}
-  .count-pill{
-    background:#EEF6F4;
-    color:var(--teal-dark);
-    font-size:12.5px;
-    font-weight:600;
-    padding:5px 10px;
-    border-radius:999px;
-  }
-  table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:13px;
-  }
+  .formcard h3{margin:0 0 14px;font-size:14.5px;font-weight:700;color:var(--primary-dark);}
+  .formgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;}
+  .formgrid .field{min-width:0;}
+  .formgrid .field select,.formgrid .field input{width:100%;min-width:0;}
+  .group-title{grid-column:1/-1;font-size:11.5px;font-weight:700;color:var(--accent);
+    margin:4px 0 -4px;text-transform:none;}
+  .form-actions{display:flex;justify-content:space-between;align-items:center;margin-top:16px;}
+  .form-total{font-size:13.5px;color:var(--ink-soft);}
+  .form-total b{color:var(--primary-dark);font-size:15px;}
+
+  /* ---- Table ---- */
+  .tablewrap{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow:hidden;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
   thead th{
-    text-align:left;
-    font-size:11.5px;
-    text-transform:uppercase;
-    letter-spacing:.04em;
-    color:var(--muted);
-    border-bottom:1.5px solid var(--line);
-    padding:8px 10px;
+    text-align:right;padding:10px 12px;background:var(--surface-alt);
+    color:var(--ink-soft);font-weight:600;font-size:12px;border-bottom:1px solid var(--line);
     white-space:nowrap;
   }
-  tbody td{
-    padding:12px 10px;
-    border-bottom:1px solid var(--line);
-    vertical-align:top;
+  thead th:first-child,thead th:nth-child(2),thead th:nth-child(3){text-align:left;}
+  tbody td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;}
+  tbody td:first-child,tbody td:nth-child(2),tbody td:nth-child(3){text-align:left;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:var(--surface-alt);}
+  tbody td.total{font-weight:700;color:var(--primary-dark);}
+  .badge{
+    display:inline-block;padding:3px 9px;border-radius:4px;font-size:11.5px;font-weight:600;
   }
-  tbody tr:hover{background:#FAFBFC;}
-  td.no{width:36px;color:var(--muted);font-weight:600;}
-  td.depo{font-weight:600;min-width:110px;}
-  td.uraian{max-width:320px;line-height:1.45;}
-  td.waktu{color:var(--muted);white-space:nowrap;font-size:12px;}
-  .file-link{
-    display:inline-flex;
-    align-items:center;
-    gap:5px;
-    color:var(--teal-dark);
-    font-weight:600;
-    text-decoration:none;
-    font-size:12.5px;
-    background:#EEF6F4;
-    padding:5px 9px;
-    border-radius:6px;
-    white-space:nowrap;
+  .badge.susulan{background:var(--accent-bg);color:var(--accent);}
+  .badge.reguler{background:var(--surface-alt);color:var(--ink-soft);}
+  .rowactions button{
+    background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12.5px;
+    font-family:inherit;padding:2px 4px;
   }
-  .file-link:hover{background:#DEEFEA;}
-  .no-file{color:var(--muted);font-size:12px;font-style:italic;}
-  .empty-state{
-    text-align:center;
-    padding:50px 20px;
-    color:var(--muted);
+  .rowactions button:hover{color:var(--bad);}
+  tfoot td{padding:12px;font-weight:700;color:var(--primary-dark);border-top:2px solid var(--line);text-align:right;}
+  tfoot td:first-child{text-align:left;}
+  .empty{padding:36px 20px;text-align:center;color:var(--ink-soft);font-size:13.5px;}
+
+  /* ---- Rekap table ---- */
+  .status-pill{padding:4px 10px;border-radius:4px;font-size:12px;font-weight:600;display:inline-block;}
+  .status-ok{background:var(--good-bg);color:var(--good);}
+  .status-diff{background:var(--bad-bg);color:var(--bad);}
+  .status-none{background:var(--surface-alt);color:var(--ink-soft);}
+
+  @media (max-width:900px){
+    .cards{grid-template-columns:1fr;}
+    .formgrid{grid-template-columns:repeat(2,1fr);}
   }
-  .empty-state .big{font-size:32px;margin-bottom:8px;}
-  .empty-state p{font-size:13.5px;margin:4px 0 0;}
-  .loading{
-    text-align:center;
-    padding:40px;
-    color:var(--muted);
-    font-size:13.5px;
-  }
-  .footnote{
-    font-size:11.5px;
-    color:var(--muted);
-    margin-top:10px;
-    line-height:1.5;
-  }
-  .thumb{
-    width:44px;height:44px;object-fit:cover;border-radius:6px;border:1px solid var(--line);
-    display:block;margin-bottom:4px;
-  }
-  input[type=date]{
-    padding:10px 12px;
-    border:1px solid var(--line);
-    border-radius:8px;
-    font-size:14px;
-    font-family:inherit;
-    color:var(--text);
-    background:#FCFDFD;
-  }
-  input[type=date]:focus{
-    outline:2px solid var(--teal);
-    outline-offset:1px;
-    border-color:var(--teal);
-  }
-  td.tanggal{color:var(--muted);white-space:nowrap;font-size:12.5px;}
-  td.rtl{min-width:220px;}
-  .rtl-block{display:flex;flex-direction:column;gap:6px;}
-  .rtl-block textarea{min-height:56px;font-size:12.5px;padding:6px 8px;}
-  .rtl-block input[type=date]{padding:6px 8px;font-size:12.5px;}
-  .rtl-block input[type=file]{font-size:11px;max-width:180px;}
-  .rtl-block label.mini{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:0;}
-  .rtl-existing-files{display:flex;flex-wrap:wrap;gap:4px;}
-  .btn-save-rtl{align-self:flex-start;padding:6px 10px;font-size:12px;}
-  .btn-delete{padding:6px 10px;font-size:12px;color:var(--danger);border-color:#F3CFC9;white-space:nowrap;}
-  .btn-delete:hover{background:var(--danger-bg);}
-  @media (max-width:600px){
-    td.uraian{max-width:160px;}
+
+  /* ---- Print ---- */
+  @media print{
+    body{background:#fff;}
+    .topbar nav.tabs,.toolbar button,.formcard,.rowactions,button.btn{display:none !important;}
+    .toolbar{border:none;padding:0;}
+    .app{max-width:100%;padding:0;}
+    .card{break-inside:avoid;}
+    table{font-size:11px;}
+    section.view{display:none;}
+    section.view.active{display:block;}
   }
 </style>
 </head>
 <body>
 <div class="app">
-  <header class="top">
-    <div class="eyebrow">Koordinasi Depo</div>
-    <h1>Lapor Kendala Depo</h1>
-    <p>Isi kendala yang terjadi di depo Anda. Semua koordinator yang membuka link ini dapat melihat daftar laporan yang masuk.</p>
-  </header>
 
-  <div class="tabs">
-    <button class="tab-btn active" id="tabFormBtn" onclick="switchTab('form')">Isi Laporan</button>
-    <button class="tab-btn" id="tabListBtn" onclick="switchTab('list')">Daftar Laporan</button>
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <div>
+        <h1>Klaim BPJS</h1>
+        <div class="sub">Pelacakan tagihan diajukan &amp; BA balasan</div>
+      </div>
+    </div>
   </div>
+  <nav class="tabs">
+    <button data-view="rekap" class="active">Ringkasan</button>
+    <button data-view="diajukan">Diajukan ke BPJS</button>
+    <button data-view="balasan">BA balasan BPJS</button>
+  </nav>
 
-  <main>
-    <!-- FORM TAB -->
-    <section id="tabForm">
-      <div class="card">
-        <div id="formMsg"></div>
-        <form id="reportForm">
-          <div class="field">
-            <label for="namaDepo">Nama Depo</label>
-            <input type="text" id="namaDepo" placeholder="Contoh: Depo Farmasi Rawat Jalan" required>
-          </div>
-          <div class="field">
-            <label for="tanggalKendala">Tanggal Kendala</label>
-            <input type="date" id="tanggalKendala" required>
-          </div>
-          <div class="field">
-            <label for="uraian">Uraian Kendala</label>
-            <textarea id="uraian" placeholder="Jelaskan kendala yang terjadi..." required></textarea>
-          </div>
-          <div class="field">
-            <label>Bukti Dukung <span class="opt">(opsional, bisa lebih dari satu file, maks 10 MB per file)</span></label>
-            <div class="file-drop" id="fileDrop" onclick="document.getElementById('fileInput').click()">
-              <input type="file" id="fileInput" multiple>
-              <div>Klik untuk pilih file (bisa pilih beberapa sekaligus)</div>
-              <div class="hint">Foto, dokumen, PDF, dll — maksimal 10 MB per file, maksimal 5 file</div>
-            </div>
-            <div id="fileChosenWrap"></div>
-          </div>
-          <button type="submit" class="btn-primary" id="submitBtn">Kirim Laporan</button>
-        </form>
-      </div>
-      <p class="footnote">Data laporan disimpan di sini dan juga otomatis tercatat di Google Sheet. Dapat dilihat oleh semua orang yang mengakses link ini — jangan unggah data pribadi/sensitif yang tidak perlu.</p>
-    </section>
+  <!-- ================= RINGKASAN ================= -->
+  <section class="view active" id="view-rekap">
+    <h2 class="view-title">Ringkasan tahunan</h2>
+    <p class="view-desc">Perbandingan otomatis antara nilai yang diajukan dan nilai balasan BPJS, per bulan.</p>
 
-    <!-- LIST TAB -->
-    <section id="tabList" style="display:none;">
-      <div class="card">
-        <div class="list-toolbar">
-          <input type="text" id="filterInput" placeholder="Cari nama depo..." oninput="renderTable()">
-          <span class="count-pill" id="countPill">0 laporan</span>
-          <button class="btn-secondary" onclick="loadEntries()">⟳ Muat ulang</button>
-        </div>
-        <div id="listMsg"></div>
-        <p class="footnote" style="margin:-8px 0 12px;">File bukti dukung tersimpan otomatis di Google Drive. Klik link file pada kolom untuk mengunduh. Isi RTL (rencana tindak lanjut) dan klik "Simpan RTL" untuk menyimpan.</p>
-        <div id="listContent"><div class="loading">Memuat data...</div></div>
+    <div class="toolbar">
+      <div class="field">
+        <label>Tahun</label>
+        <select id="rekap-tahun"></select>
       </div>
-    </section>
-  </main>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" onclick="window.print()">Cetak halaman ini</button>
+    </div>
+
+    <div class="cards">
+      <div class="card"><div class="label">Total diajukan</div><div class="value tnum" id="card-diajukan">Rp 0</div></div>
+      <div class="card"><div class="label">Total BA balasan</div><div class="value tnum" id="card-balasan">Rp 0</div></div>
+      <div class="card diff"><div class="label">Selisih</div><div class="value tnum" id="card-selisih">Rp 0</div></div>
+    </div>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align:left">Bulan</th>
+            <th>Diajukan ke BPJS</th>
+            <th>BA balasan BPJS</th>
+            <th>Selisih</th>
+            <th style="text-align:left">Status</th>
+          </tr>
+        </thead>
+        <tbody id="rekap-body"></tbody>
+        <tfoot>
+          <tr>
+            <td>Total</td>
+            <td class="tnum" id="rekap-total-diajukan">Rp 0</td>
+            <td class="tnum" id="rekap-total-balasan">Rp 0</td>
+            <td class="tnum" id="rekap-total-selisih">Rp 0</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= DIAJUKAN ================= -->
+  <section class="view" id="view-diajukan">
+    <h2 class="view-title">Data diajukan ke BPJS</h2>
+    <p class="view-desc">Catat setiap pengajuan tagihan bulanan, termasuk pengajuan susulan.</p>
+    <div id="diajukan-root"></div>
+  </section>
+
+  <!-- ================= BALASAN ================= -->
+  <section class="view" id="view-balasan">
+    <h2 class="view-title">Data BA balasan dari BPJS</h2>
+    <p class="view-desc">Catat nilai yang disetujui BPJS pada Berita Acara balasan, per bulan.</p>
+    <div id="balasan-root"></div>
+  </section>
+
 </div>
 
 <script>
-const SHEET_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwaN-SOHrKS-G8z0x_0GfSpaIBT4QpW_qjKheDl-SaCXvvkQfVbReH4V9IjLUZquup_/exec';
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB per file
-const MAX_FILE_COUNT = 5;
-const MAX_TOTAL_SIZE = 25 * 1024 * 1024; // 25 MB total per laporan
-let selectedFiles = [];
-let entries = [];
+/* ---------------- constants ---------------- */
+const MONTHS = ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"];
+const CATS = [
+  {key:"rjtl_kronis", psn:"rjtl_kronis_psn", nilai:"rjtl_kronis_nilai", label:"1. RJTL Kronis"},
+  {key:"rjtl", psn:"rjtl_psn", nilai:"rjtl_nilai", label:"2. RJTL (kemoterapi)"},
+  {key:"ritl", psn:"ritl_psn", nilai:"ritl_nilai", label:"3. RITL (kemoterapi)"},
+  {key:"alkes", psn:"alkes_psn", nilai:"alkes_nilai", label:"4. ALKES"},
+  {key:"capd", psn:"capd_psn", nilai:"capd_nilai", label:"5. CAPD"},
+];
+const STORE_KEYS = {diajukan:"klaim-bpjs-diajukan", balasan:"klaim-bpjs-balasan"};
 
-function todayInputValue(){
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-document.getElementById('tanggalKendala').value = todayInputValue();
+let DATA = {diajukan:[], balasan:[]};
+let FILTER = {
+  diajukan:{tahun:"semua", bulan:"semua", keterangan:"semua"},
+  balasan:{tahun:"semua", bulan:"semua", keterangan:"semua"}
+};
+let FORM_OPEN = {diajukan:false, balasan:false};
 
-function switchTab(tab){
-  document.getElementById('tabForm').style.display = tab==='form' ? 'block':'none';
-  document.getElementById('tabList').style.display = tab==='list' ? 'block':'none';
-  document.getElementById('tabFormBtn').classList.toggle('active', tab==='form');
-  document.getElementById('tabListBtn').classList.toggle('active', tab==='list');
-  if(tab==='list') loadEntries();
-}
-
-document.getElementById('fileInput').addEventListener('change', (e)=>{
-  const newFiles = Array.from(e.target.files || []);
-  e.target.value = ''; // reset supaya bisa pilih file yang sama lagi kalau perlu
-
-  let rejectedSize = false;
-  for(const file of newFiles){
-    if(file.size > MAX_FILE_SIZE){
-      rejectedSize = true;
-      continue;
-    }
-    const alreadyAdded = selectedFiles.some(f => f.name === file.name && f.size === file.size);
-    if(!alreadyAdded){
-      selectedFiles.push(file);
+/* ---------------- storage ---------------- */
+async function loadAll(){
+  for(const type of ["diajukan","balasan"]){
+    try{
+      const res = await window.storage.get(STORE_KEYS[type], false);
+      DATA[type] = res && res.value ? JSON.parse(res.value) : [];
+    }catch(e){
+      DATA[type] = [];
     }
   }
-
-  if(rejectedSize){
-    showFormMsg('error','Ada file yang lebih dari 10 MB dan tidak ditambahkan.');
+}
+async function save(type){
+  try{
+    await window.storage.set(STORE_KEYS[type], JSON.stringify(DATA[type]), false);
+  }catch(e){
+    console.error("Gagal menyimpan data", e);
   }
-  if(selectedFiles.length > MAX_FILE_COUNT){
-    selectedFiles = selectedFiles.slice(0, MAX_FILE_COUNT);
-    showFormMsg('error', `Maksimal ${MAX_FILE_COUNT} file per laporan.`);
-  }
-  renderFileChosen();
-});
-
-function renderFileChosen(){
-  const wrap = document.getElementById('fileChosenWrap');
-  if(selectedFiles.length === 0){ wrap.innerHTML=''; return; }
-  wrap.innerHTML = selectedFiles.map((f, idx)=>{
-    const sizeKb = (f.size/1024).toFixed(0);
-    return `<div class="file-chosen">📎 ${escapeHtml(f.name)} (${sizeKb} KB)<button type="button" onclick="clearFile(${idx})">Hapus</button></div>`;
-  }).join('');
 }
 
-function clearFile(idx){
-  selectedFiles.splice(idx, 1);
-  renderFileChosen();
+/* ---------------- helpers ---------------- */
+function rupiah(n){
+  n = Number(n)||0;
+  return "Rp " + n.toLocaleString("id-ID");
+}
+function rowTotal(r){
+  return CATS.reduce((s,c)=> s + (Number(r[c.nilai])||0), 0);
+}
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function yearsInUse(){
+  const ys = new Set([new Date().getFullYear()]);
+  DATA.diajukan.forEach(r=>ys.add(r.tahun));
+  DATA.balasan.forEach(r=>ys.add(r.tahun));
+  return Array.from(ys).sort();
 }
 
-function showFormMsg(type, text){
-  const el = document.getElementById('formMsg');
-  el.innerHTML = `<div class="msg ${type}">${escapeHtml(text)}</div>`;
-  if(type==='success'){ setTimeout(()=>{ el.innerHTML=''; }, 5000); }
-}
-
-function fileToBase64(file){
-  return new Promise((resolve, reject)=>{
-    const reader = new FileReader();
-    reader.onload = ()=> resolve(reader.result);
-    reader.onerror = ()=> reject(new Error('Gagal membaca file'));
-    reader.readAsDataURL(file);
+/* ---------------- export to spreadsheet ---------------- */
+function buildExportRows(type){
+  const rows = filteredRows(type);
+  const header = ["Tahun","Bulan","Keterangan"];
+  CATS.forEach(c=>{ header.push(c.label+" - Jumlah Pasien"); header.push(c.label+" - Nilai"); });
+  header.push("Total Seluruhnya");
+  const lines = [header];
+  rows.forEach(r=>{
+    const line = [r.tahun, r.bulan, r.keterangan];
+    CATS.forEach(c=>{ line.push(r[c.psn]); line.push(r[c.nilai]); });
+    line.push(rowTotal(r));
+    lines.push(line);
   });
+  return lines;
 }
 
-document.getElementById('reportForm').addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const submitBtn = document.getElementById('submitBtn');
-  const namaDepo = document.getElementById('namaDepo').value.trim();
-  const tanggalKendala = document.getElementById('tanggalKendala').value;
-  const uraian = document.getElementById('uraian').value.trim();
-  if(!namaDepo || !tanggalKendala || !uraian){
-    showFormMsg('error','Nama Depo, Tanggal Kendala, dan Uraian Kendala wajib diisi.');
-    return;
+function copyForSheets(type){
+  const lines = buildExportRows(type);
+  const tsv = lines.map(l=>l.join("\t")).join("\n");
+  const ta = document.createElement("textarea");
+  ta.value = tsv;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  let ok = false;
+  try{ ok = document.execCommand("copy"); }catch(e){ ok = false; }
+  document.body.removeChild(ta);
+  const btn = document.getElementById(type+"-copy");
+  if(btn){
+    const original = btn.textContent;
+    btn.textContent = ok ? "Tersalin ✓" : "Gagal menyalin";
+    setTimeout(()=>{ btn.textContent = original; }, 1800);
   }
-
-  const totalSize = selectedFiles.reduce((s,f)=>s+f.size,0);
-  if(totalSize > MAX_TOTAL_SIZE){
-    showFormMsg('error','Total ukuran semua file terlalu besar (maks 25 MB total). Kurangi jumlah/ukuran file.');
-    return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(tsv).catch(()=>{});
   }
+}
 
-  submitBtn.disabled = true;
-  submitBtn.textContent = 'Mengirim...';
+function downloadCSV(type){
+  const lines = buildExportRows(type);
+  const csv = lines.map(l=> l.map(v=>{
+    const s = String(v);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(",")).join("\n");
+  const blob = new Blob(["\uFEFF"+csv], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (type==="diajukan" ? "diajukan_bpjs" : "balasan_bpjs") + ".csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
-  try{
-    const filesWithData = [];
-    for(const f of selectedFiles){
-      const dataUrl = await fileToBase64(f);
-      filesWithData.push({
-        name: f.name,
-        type: f.type || 'application/octet-stream',
-        base64: dataUrl
-      });
-    }
-
-    const result = await sendToSheet({ action:'create', namaDepo, tanggal: tanggalKendala, uraian, files: filesWithData });
-
-    if(result.fileWarnings && result.fileWarnings.length){
-      showFormMsg('error', 'Laporan tersimpan, tapi ada file yang gagal diunggah: ' + result.fileWarnings.join('; '));
-    } else {
-      showFormMsg('success','Laporan berhasil dikirim. Terima kasih!');
-    }
-    document.getElementById('namaDepo').value = '';
-    document.getElementById('uraian').value = '';
-    document.getElementById('tanggalKendala').value = todayInputValue();
-    selectedFiles = [];
-    renderFileChosen();
-  }catch(err){
-    console.error(err);
-    showFormMsg('error', 'Laporan gagal tersimpan (' + err.message + '). Silakan cek Google Sheet, dan kirim ulang jika laporan belum muncul di sana.');
-  }finally{
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Kirim Laporan';
-  }
+/* ---------------- tab switching ---------------- */
+document.querySelectorAll("nav.tabs button").forEach(btn=>{
+  btn.addEventListener("click", ()=>{
+    document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll("section.view").forEach(s=>s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("view-"+btn.dataset.view).classList.add("active");
+  });
 });
 
-async function sendToSheet(payload){
-  let res;
-  try{
-    res = await fetch(SHEET_WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // hindari preflight CORS
-      body: JSON.stringify(payload)
+/* ---------------- render: input tables (diajukan / balasan) ---------------- */
+function renderInputView(type){
+  const root = document.getElementById(type+"-root");
+  const years = yearsInUse();
+
+  root.innerHTML = `
+    <div class="toolbar">
+      <div class="field">
+        <label>Tahun</label>
+        <select data-f="tahun">
+          <option value="semua">Semua</option>
+          ${years.map(y=>`<option value="${y}">${y}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label>Bulan</label>
+        <select data-f="bulan">
+          <option value="semua">Semua</option>
+          ${MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field">
+        <label>Keterangan</label>
+        <select data-f="keterangan">
+          <option value="semua">Semua</option>
+          <option value="Reguler">Reguler</option>
+          <option value="Susulan">Susulan</option>
+        </select>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-ghost" id="${type}-copy">Salin untuk Google Sheets</button>
+      <button class="btn btn-ghost" id="${type}-csv">Unduh CSV</button>
+      <button class="btn btn-ghost" id="${type}-print">Cetak tampilan ini</button>
+      <button class="btn btn-primary" id="${type}-toggle-form">${FORM_OPEN[type] ? "Tutup form" : "+ Tambah data"}</button>
+    </div>
+    <p style="margin:-6px 0 16px;color:var(--ink-soft);font-size:12.5px;">
+      "Salin untuk Google Sheets" menyalin data yang sedang tampil (sesuai filter) siap tempel langsung ke sel di spreadsheet Anda.
+    </p>
+    <div id="${type}-formwrap"></div>
+    <div class="tablewrap"><div id="${type}-tablewrap"></div></div>
+  `;
+
+  // wire filters
+  root.querySelectorAll("select[data-f]").forEach(sel=>{
+    sel.value = FILTER[type][sel.dataset.f];
+    sel.addEventListener("change", ()=>{
+      FILTER[type][sel.dataset.f] = sel.value;
+      renderTable(type);
     });
-  }catch(networkErr){
-    throw new Error('Tidak bisa menghubungi server (masalah jaringan atau CORS)');
-  }
+  });
+  document.getElementById(type+"-print").addEventListener("click", ()=>window.print());
+  document.getElementById(type+"-copy").addEventListener("click", ()=>copyForSheets(type));
+  document.getElementById(type+"-csv").addEventListener("click", ()=>downloadCSV(type));
+  document.getElementById(type+"-toggle-form").addEventListener("click", ()=>{
+    FORM_OPEN[type] = !FORM_OPEN[type];
+    renderInputView(type);
+  });
 
-  if(!res.ok){
-    throw new Error('Server merespons dengan status ' + res.status);
-  }
-
-  let json;
-  try{
-    json = await res.json();
-  }catch(parseErr){
-    throw new Error('Respons server tidak valid');
-  }
-
-  if(json.status !== 'ok'){
-    throw new Error(json.message || 'Server menolak laporan ini');
-  }
-
-  return json;
+  if(FORM_OPEN[type]) renderForm(type);
+  renderTable(type);
 }
 
-function showListMsg(type, text){
-  const el = document.getElementById('listMsg');
-  el.innerHTML = `<div class="msg ${type}">${escapeHtml(text)}</div>`;
-  if(type==='success'){ setTimeout(()=>{ el.innerHTML=''; }, 5000); }
-}
+/* ---------------- entry form ---------------- */
+function renderForm(type){
+  const wrap = document.getElementById(type+"-formwrap");
+  const thisYear = new Date().getFullYear();
+  wrap.innerHTML = `
+    <div class="formcard">
+      <h3>Tambah data ${type === "diajukan" ? "pengajuan" : "BA balasan"}</h3>
+      <div class="formgrid">
+        <div class="field">
+          <label>Tahun</label>
+          <input type="number" id="f-tahun" value="${thisYear}">
+        </div>
+        <div class="field">
+          <label>Bulan</label>
+          <select id="f-bulan">${MONTHS.map(m=>`<option value="${m}">${m}</option>`).join("")}</select>
+        </div>
+        <div class="field">
+          <label>Keterangan</label>
+          <select id="f-keterangan">
+            <option value="Reguler">Reguler</option>
+            <option value="Susulan">Susulan</option>
+          </select>
+        </div>
+        <div class="field"></div><div class="field"></div><div class="field"></div>
+      </div>
+    </div>
+  `;
 
-// 'DD/MM/YYYY' -> 'YYYY-MM-DD' (untuk value input type=date)
-function toDateInputValue(str){
-  if(!str) return '';
-  const parts = String(str).split('/');
-  if(parts.length !== 3) return '';
-  return `${parts[2]}-${String(parts[1]).padStart(2,'0')}-${String(parts[0]).padStart(2,'0')}`;
-}
+  // Build the category rows: each group gets a full-width title, then a psn field and a nilai field
+  const grid = wrap.querySelector(".formgrid");
+  CATS.forEach(c=>{
+    const title = document.createElement("div");
+    title.className = "group-title";
+    title.textContent = c.label;
+    grid.appendChild(title);
 
-async function deleteEntry(id){
-  if(!confirm('Yakin ingin menghapus laporan ini? Data yang dihapus tidak bisa dikembalikan.')) return;
-  try{
-    await sendToSheet({ action:'delete', id });
-    showListMsg('success','Laporan berhasil dihapus.');
-    await loadEntries();
-  }catch(err){
-    showListMsg('error', 'Gagal menghapus laporan: ' + err.message);
+    const fPsn = document.createElement("div");
+    fPsn.className = "field";
+    fPsn.innerHTML = `<label>Jumlah pasien</label><input type="number" min="0" id="f-${c.psn}" value="0">`;
+    grid.appendChild(fPsn);
+
+    const fNilai = document.createElement("div");
+    fNilai.className = "field";
+    fNilai.innerHTML = `<label>Nilai (Rp)</label><input type="number" min="0" id="f-${c.nilai}" value="0">`;
+    grid.appendChild(fNilai);
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "form-actions";
+  actions.innerHTML = `
+    <div class="form-total">Total seluruhnya: <b id="f-total">Rp 0</b></div>
+    <div>
+      <button class="btn btn-ghost" id="f-cancel">Batal</button>
+      <button class="btn btn-primary" id="f-save">Simpan data</button>
+    </div>
+  `;
+  wrap.querySelector(".formcard").appendChild(actions);
+
+  function recalcTotal(){
+    const total = CATS.reduce((s,c)=> s + (Number(document.getElementById("f-"+c.nilai).value)||0), 0);
+    document.getElementById("f-total").textContent = rupiah(total);
   }
+  CATS.forEach(c=> document.getElementById("f-"+c.nilai).addEventListener("input", recalcTotal));
+
+  document.getElementById("f-cancel").addEventListener("click", ()=>{
+    FORM_OPEN[type] = false;
+    renderInputView(type);
+  });
+  document.getElementById("f-save").addEventListener("click", ()=>{
+    const record = {
+      id: uid(),
+      tahun: Number(document.getElementById("f-tahun").value)||thisYear,
+      bulan: document.getElementById("f-bulan").value,
+      keterangan: document.getElementById("f-keterangan").value,
+    };
+    CATS.forEach(c=>{
+      record[c.psn] = Number(document.getElementById("f-"+c.psn).value)||0;
+      record[c.nilai] = Number(document.getElementById("f-"+c.nilai).value)||0;
+    });
+    DATA[type].push(record);
+    save(type);
+    FORM_OPEN[type] = false;
+    renderInputView(type);
+  });
 }
 
-async function saveRtl(id, btnEl){
-  const textarea = document.querySelector(`.rtl-input[data-id="${id}"]`);
-  const dateInput = document.querySelector(`.rtl-date[data-id="${id}"]`);
-  const fileInput = document.querySelector(`.rtl-file[data-id="${id}"]`);
-  const rtl = textarea ? textarea.value.trim() : '';
-  const selesaiRtl = dateInput ? dateInput.value : '';
-
-  const originalText = btnEl.textContent;
-  btnEl.disabled = true;
-  btnEl.textContent = 'Menyimpan...';
-
-  try{
-    const payload = { action:'update', id, rtl, selesaiRtl };
-    if(fileInput && fileInput.files && fileInput.files[0]){
-      const f = fileInput.files[0];
-      if(f.size > MAX_FILE_SIZE){
-        throw new Error('File RTL lebih dari 10 MB, tidak diunggah.');
-      }
-      const dataUrl = await fileToBase64(f);
-      payload.files = [{ name: f.name, type: f.type || 'application/octet-stream', base64: dataUrl }];
-    }
-    const result = await sendToSheet(payload);
-    if(result.fileWarnings && result.fileWarnings.length){
-      showListMsg('error', 'RTL tersimpan, tapi file gagal diunggah: ' + result.fileWarnings.join('; '));
-    } else {
-      showListMsg('success','RTL berhasil disimpan.');
-    }
-    await loadEntries();
-  }catch(err){
-    showListMsg('error', 'Gagal menyimpan RTL: ' + err.message);
-  }finally{
-    btnEl.disabled = false;
-    btnEl.textContent = originalText;
-  }
+/* ---------------- data table ---------------- */
+function filteredRows(type){
+  const f = FILTER[type];
+  return DATA[type].filter(r=>
+    (f.tahun==="semua" || String(r.tahun)===String(f.tahun)) &&
+    (f.bulan==="semua" || r.bulan===f.bulan) &&
+    (f.keterangan==="semua" || r.keterangan===f.keterangan)
+  ).sort((a,b)=> a.tahun-b.tahun || MONTHS.indexOf(a.bulan)-MONTHS.indexOf(b.bulan));
 }
 
-document.getElementById('listContent').addEventListener('click', (e)=>{
-  const delBtn = e.target.closest('.btn-delete');
-  if(delBtn){ deleteEntry(delBtn.dataset.id); return; }
-  const saveBtn = e.target.closest('.btn-save-rtl');
-  if(saveBtn){ saveRtl(saveBtn.dataset.id, saveBtn); return; }
-});
+function renderTable(type){
+  const rows = filteredRows(type);
+  const holder = document.getElementById(type+"-tablewrap");
 
-async function loadEntries(){
-  const listContent = document.getElementById('listContent');
-  listContent.innerHTML = '<div class="loading">Memuat data...</div>';
-  try{
-    const res = await fetch(SHEET_WEBHOOK_URL, { method: 'GET' });
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const json = await res.json();
-    entries = (json && json.data) ? json.data : [];
-    renderTable();
-  }catch(err){
-    console.error(err);
-    listContent.innerHTML = `
-      <div class="empty-state">
-        <div class="big">🔒</div>
-        <div><strong>Tidak bisa memuat daftar dari sini</strong></div>
-        <p>Browser memblokir permintaan lintas domain ke Google Sheet dari alamat website ini.<br>Data laporan tetap tersimpan — silakan buka Google Sheet lewat tombol di atas untuk melihatnya.</p>
-      </div>`;
-  }
-}
-
-function renderTable(){
-  const listContent = document.getElementById('listContent');
-  const filter = document.getElementById('filterInput').value.trim().toLowerCase();
-  const filtered = filter ? entries.filter(e => (e.namaDepo||'').toLowerCase().includes(filter)) : entries;
-
-  document.getElementById('countPill').textContent = filtered.length + ' laporan';
-
-  if(filtered.length === 0){
-    listContent.innerHTML = `
-      <div class="empty-state">
-        <div class="big">🗂️</div>
-        <div><strong>Belum ada laporan</strong></div>
-        <p>Laporan yang dikirim koordinator akan muncul di sini.</p>
-      </div>`;
+  if(rows.length===0){
+    holder.innerHTML = `<div class="empty">Belum ada data yang cocok dengan filter ini. Tambahkan data baru atau ubah filter di atas.</div>`;
     return;
   }
 
-  let rows = '';
-  filtered.forEach((e)=>{
-    const files = e.files || [];
-    let fileCell = '<span class="no-file">Tidak ada</span>';
-    if(files.length > 0){
-      fileCell = files.map(f=>{
-        return `<div style="margin-bottom:6px;"><a class="file-link" href="${f.url}" target="_blank" rel="noopener">⬇ ${escapeHtml(truncate(f.name || 'file', 20))}</a></div>`;
-      }).join('');
-    }
+  const grand = rows.reduce((s,r)=> s + rowTotal(r), 0);
 
-    const fileRtl = e.fileRtl || [];
-    let fileRtlLinks = '';
-    if(fileRtl.length > 0){
-      fileRtlLinks = `<div class="rtl-existing-files">${fileRtl.map(f=>{
-        return `<a class="file-link" href="${f.url}" target="_blank" rel="noopener">⬇ ${escapeHtml(truncate(f.name || 'file', 16))}</a>`;
-      }).join('')}</div>`;
-    }
-
-    const rtlBlock = `
-      <div class="rtl-block">
-        <textarea class="rtl-input" data-id="${e.id}" placeholder="Tulis RTL / tindak lanjut...">${escapeHtml(e.rtl || '')}</textarea>
-        <label class="mini">Selesai RTL</label>
-        <input type="date" class="rtl-date" data-id="${e.id}" value="${toDateInputValue(e.selesaiRtl)}">
-        <label class="mini">File RTL (opsional)</label>
-        <input type="file" class="rtl-file" data-id="${e.id}">
-        ${fileRtlLinks}
-        <button type="button" class="btn-secondary btn-save-rtl" data-id="${e.id}">Simpan RTL</button>
-      </div>`;
-
-    rows += `<tr>
-      <td class="no">${escapeHtml(String(e.no != null ? e.no : ''))}</td>
-      <td class="depo">${escapeHtml(e.namaDepo)}</td>
-      <td class="tanggal">${escapeHtml(e.tanggal || '-')}</td>
-      <td class="uraian">${escapeHtml(e.uraian)}</td>
-      <td>${fileCell}</td>
-      <td class="rtl">${rtlBlock}</td>
-      <td class="waktu">${escapeHtml(e.waktu || '-')}</td>
-      <td><button type="button" class="btn-secondary btn-delete" data-id="${e.id}">Hapus</button></td>
-    </tr>`;
-  });
-
-  listContent.innerHTML = `
-    <div style="overflow-x:auto;">
+  holder.innerHTML = `
     <table>
       <thead>
         <tr>
-          <th>No</th>
-          <th>Nama Depo</th>
-          <th>Tanggal</th>
-          <th>Uraian Kendala</th>
-          <th>Bukti Dukung</th>
-          <th>RTL &amp; Tindak Lanjut</th>
-          <th>Waktu Lapor</th>
-          <th>Aksi</th>
+          <th style="text-align:left">Bulan</th>
+          <th style="text-align:left">Keterangan</th>
+          ${CATS.map(c=>`<th>${c.label}<br>psn / nilai</th>`).join("")}
+          <th>Total</th>
+          <th style="text-align:left"></th>
         </tr>
       </thead>
-      <tbody>${rows}</tbody>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td>${r.tahun} &middot; ${r.bulan}</td>
+            <td><span class="badge ${r.keterangan==='Susulan'?'susulan':'reguler'}">${r.keterangan}</span></td>
+            ${CATS.map(c=>`<td class="tnum">${r[c.psn]} / ${rupiah(r[c.nilai])}</td>`).join("")}
+            <td class="total tnum">${rupiah(rowTotal(r))}</td>
+            <td class="rowactions"><button onclick="deleteRow('${type}','${r.id}')">Hapus</button></td>
+          </tr>
+        `).join("")}
+      </tbody>
+      <tfoot>
+        <tr><td colspan="${2+CATS.length}">Total (sesuai filter)</td><td class="tnum">${rupiah(grand)}</td><td></td></tr>
+      </tfoot>
     </table>
-    </div>`;
+  `;
 }
 
-function truncate(str, n){
-  return str.length > n ? str.slice(0,n-1)+'…' : str;
+function deleteRow(type, id){
+  DATA[type] = DATA[type].filter(r=>r.id!==id);
+  save(type);
+  renderTable(type);
+  renderRekap();
 }
-function escapeHtml(str){
-  const div = document.createElement('div');
-  div.textContent = str || '';
-  return div.innerHTML;
+
+/* ---------------- rekap ---------------- */
+function renderRekap(){
+  const sel = document.getElementById("rekap-tahun");
+  const years = yearsInUse();
+  const current = sel.value || String(new Date().getFullYear());
+  sel.innerHTML = years.map(y=>`<option value="${y}">${y}</option>`).join("");
+  sel.value = years.includes(Number(current)) ? current : String(years[years.length-1]);
+
+  const year = Number(sel.value);
+  const sumFor = (type, bulan) => DATA[type]
+    .filter(r=> r.tahun===year && r.bulan===bulan)
+    .reduce((s,r)=> s + rowTotal(r), 0);
+
+  let totalD=0, totalB=0;
+  const rowsHtml = MONTHS.map(m=>{
+    const d = sumFor("diajukan", m);
+    const b = sumFor("balasan", m);
+    totalD += d; totalB += b;
+    const diff = d-b;
+    let status, cls;
+    if(d===0 && b===0){ status="Belum ada data"; cls="status-none"; }
+    else if(b===0){ status="Belum ada balasan"; cls="status-diff"; }
+    else if(diff===0){ status="Sudah sesuai"; cls="status-ok"; }
+    else { status="Ada selisih"; cls="status-diff"; }
+    return `
+      <tr>
+        <td>${m}</td>
+        <td class="tnum">${rupiah(d)}</td>
+        <td class="tnum">${rupiah(b)}</td>
+        <td class="tnum">${rupiah(diff)}</td>
+        <td><span class="status-pill ${cls}">${status}</span></td>
+      </tr>
+    `;
+  }).join("");
+
+  document.getElementById("rekap-body").innerHTML = rowsHtml;
+  document.getElementById("card-diajukan").textContent = rupiah(totalD);
+  document.getElementById("card-balasan").textContent = rupiah(totalB);
+  const selisih = totalD-totalB;
+  const selEl = document.getElementById("card-selisih");
+  selEl.textContent = rupiah(selisih);
+  selEl.classList.toggle("pos", selisih!==0);
+  selEl.classList.toggle("zero", selisih===0);
+  document.getElementById("rekap-total-diajukan").textContent = rupiah(totalD);
+  document.getElementById("rekap-total-balasan").textContent = rupiah(totalB);
+  document.getElementById("rekap-total-selisih").textContent = rupiah(selisih);
 }
-function escapeAttr(str){
-  return (str||'').replace(/"/g,'&quot;');
-}
+document.getElementById("rekap-tahun").addEventListener("change", renderRekap);
+
+/* ---------------- init ---------------- */
+(async function init(){
+  await loadAll();
+  renderInputView("diajukan");
+  renderInputView("balasan");
+  renderRekap();
+})();
 </script>
 </body>
 </html>
