@@ -153,6 +153,14 @@
   .status-diff{background:var(--bad-bg);color:var(--bad);}
   .status-none{background:var(--surface-alt);color:var(--ink-soft);}
 
+  .note-input{
+    width:100%;min-width:160px;border:1px solid var(--line);border-radius:4px;
+    padding:6px 8px;font-family:inherit;font-size:12.5px;color:var(--ink);
+    background:var(--surface);
+  }
+  .note-input:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .note-input::placeholder{color:#A9B0AA;}
+
   @media (max-width:900px){
     .cards{grid-template-columns:1fr;}
     .formgrid{grid-template-columns:repeat(2,1fr);}
@@ -174,6 +182,7 @@
       display:block;font-size:17px;font-weight:700;color:#000;
       margin:0 0 14px;text-align:center;
     }
+    .note-input{border:none;padding:0;background:transparent;}
   }
 </style>
 </head>
@@ -230,6 +239,7 @@
             <th>BA balasan BPJS</th>
             <th>Selisih</th>
             <th style="text-align:left">Status</th>
+            <th style="text-align:left">Keterangan</th>
           </tr>
         </thead>
         <tbody id="rekap-body"></tbody>
@@ -239,6 +249,7 @@
             <td class="tnum" id="rekap-total-diajukan">Rp 0</td>
             <td class="tnum" id="rekap-total-balasan">Rp 0</td>
             <td class="tnum" id="rekap-total-selisih">Rp 0</td>
+            <td></td>
             <td></td>
           </tr>
         </tfoot>
@@ -273,6 +284,8 @@ const CATS = [
   {key:"capd", psn:"capd_psn", nilai:"capd_nilai", label:"5. CAPD"},
 ];
 const STORE_KEYS = {diajukan:"klaim-bpjs-diajukan", balasan:"klaim-bpjs-balasan"};
+const REKAP_NOTES_KEY = "klaim-bpjs-rekap-notes";
+let REKAP_NOTES = {}; // {"2026_Januari": "penjelasan admin"}
 
 let DATA = {diajukan:[], balasan:[]};
 let FILTER = {
@@ -394,6 +407,9 @@ function rowTotal(r){
   return CATS.reduce((s,c)=> s + (Number(r[c.nilai])||0), 0);
 }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function escapeAttr(s){
+  return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+}
 function yearsInUse(){
   const ys = new Set([new Date().getFullYear()]);
   DATA.diajukan.forEach(r=>ys.add(r.tahun));
@@ -480,6 +496,27 @@ async function saveSheetUrl(url){
   try{ if(HAS_STORAGE_API) await window.storage.set(SHEET_URL_KEY, url, false); }catch(e){}
   try{ window.localStorage.setItem(SHEET_URL_KEY, url); }catch(e){}
 }
+
+/* ---------------- catatan admin di tabel Ringkasan ---------------- */
+async function loadRekapNotes(){
+  let raw = null;
+  try{
+    if(HAS_STORAGE_API){
+      const res = await window.storage.get(REKAP_NOTES_KEY, false);
+      if(res && res.value) raw = res.value;
+    }
+  }catch(e){}
+  if(raw === null){
+    try{ raw = window.localStorage.getItem(REKAP_NOTES_KEY); }catch(e){}
+  }
+  try{ REKAP_NOTES = raw ? JSON.parse(raw) : {}; }catch(e){ REKAP_NOTES = {}; }
+}
+async function saveRekapNotes(){
+  const json = JSON.stringify(REKAP_NOTES);
+  try{ if(HAS_STORAGE_API) await window.storage.set(REKAP_NOTES_KEY, json, false); }catch(e){}
+  try{ window.localStorage.setItem(REKAP_NOTES_KEY, json); }catch(e){}
+}
+function noteKey(year, bulan){ return year + "_" + bulan; }
 
 function setSyncStatus(msg){
   const el = document.getElementById("sync-status");
@@ -776,17 +813,28 @@ function renderRekap(){
     "Sudah sesuai":"status-ok",
     "Ada selisih":"status-diff"
   };
-  const rowsHtml = rows.map(r=>`
+  const rowsHtml = rows.map(r=>{
+    const key = noteKey(year, r.bulan);
+    const noteVal = escapeAttr(REKAP_NOTES[key] || "");
+    return `
       <tr>
         <td>${r.bulan}</td>
         <td class="tnum">${rupiah(r.d)}</td>
         <td class="tnum">${rupiah(r.b)}</td>
         <td class="tnum">${rupiah(r.diff)}</td>
         <td><span class="status-pill ${statusClass[r.status]}">${r.status}</span></td>
+        <td><input type="text" class="note-input" data-key="${key}" value="${noteVal}" placeholder="Isi bila ada selisih"></td>
       </tr>
-  `).join("");
+    `;
+  }).join("");
 
   document.getElementById("rekap-body").innerHTML = rowsHtml;
+  document.querySelectorAll("#rekap-body .note-input").forEach(inp=>{
+    inp.addEventListener("change", ()=>{
+      REKAP_NOTES[inp.dataset.key] = inp.value;
+      saveRekapNotes();
+    });
+  });
   document.getElementById("card-diajukan").textContent = rupiah(totalD);
   document.getElementById("card-balasan").textContent = rupiah(totalB);
   const selisih = totalD-totalB;
@@ -807,14 +855,14 @@ function downloadRekapExcel(){
   const aoa = [
     [title],
     [],
-    ["Bulan","Total Diajukan ke BPJS","Total BA Balasan BPJS","Selisih (Diajukan - Balasan)","Status"],
-    ...rows.map(r=>[r.bulan, r.d, r.b, r.diff, r.status]),
-    ["Total", totalD, totalB, totalD-totalB, ""]
+    ["Bulan","Total Diajukan ke BPJS","Total BA Balasan BPJS","Selisih (Diajukan - Balasan)","Status","Keterangan"],
+    ...rows.map(r=>[r.bulan, r.d, r.b, r.diff, r.status, REKAP_NOTES[noteKey(year, r.bulan)] || ""]),
+    ["Total", totalD, totalB, totalD-totalB, "", ""]
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!merges"] = [{s:{r:0,c:0}, e:{r:0,c:4}}];
-  ws["!cols"] = [{wch:14},{wch:22},{wch:22},{wch:24},{wch:18}];
+  ws["!merges"] = [{s:{r:0,c:0}, e:{r:0,c:5}}];
+  ws["!cols"] = [{wch:14},{wch:22},{wch:22},{wch:24},{wch:18},{wch:30}];
 
   const currencyFmt = '"Rp" #,##0';
   const dataStartRow = 3; // baris ke-4 (index 3) = data bulan pertama
@@ -851,6 +899,7 @@ document.getElementById("refresh-btn").addEventListener("click", refreshAll);
 (async function init(){
   await loadSheetUrl();
   await loadAll();
+  await loadRekapNotes();
   renderInputView("diajukan");
   renderInputView("balasan");
   renderRekap();
