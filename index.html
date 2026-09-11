@@ -180,7 +180,6 @@
         <h1>Klaim BPJS</h1>
       </div>
     </div>
-    <button class="btn btn-ghost" id="sync-settings-toggle">Sinkronisasi Google Sheets</button>
   </div>
   <nav class="tabs">
     <button data-view="rekap" class="active">Ringkasan</button>
@@ -190,22 +189,6 @@
 
   <div class="storage-warning" id="storage-warning">
     Penyimpanan otomatis tidak tersedia di browser ini, sehingga data bisa hilang saat halaman ditutup atau di-refresh. Gunakan tombol "Unduh CSV" secara berkala untuk mencadangkan data Anda.
-  </div>
-
-  <div class="formcard" id="sync-settings-panel" style="display:none;">
-    <h3>Sinkronisasi otomatis ke Google Sheets</h3>
-    <p style="margin:0 0 12px;color:var(--ink-soft);font-size:12.5px;">
-      Tempel URL Web App Google Apps Script Anda di sini. Setelah tersimpan, setiap data baru yang Anda tambahkan akan otomatis terkirim ke spreadsheet.
-    </p>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-      <div class="field" style="flex:1;min-width:280px;">
-        <label>URL Web App (diakhiri /exec)</label>
-        <input type="text" id="sync-url" placeholder="https://script.google.com/macros/s/.../exec">
-      </div>
-      <button class="btn btn-primary" id="sync-url-save">Simpan URL</button>
-      <button class="btn btn-ghost" id="sync-all-now">Sinkronkan semua data sekarang</button>
-    </div>
-    <div id="sync-status" style="margin-top:10px;font-size:12.5px;color:var(--ink-soft);"></div>
   </div>
 
   <!-- ================= RINGKASAN ================= -->
@@ -418,7 +401,8 @@ function downloadCSV(type){
 
 /* ---------------- Google Sheets sync (via Apps Script Web App) ---------------- */
 const SHEET_URL_KEY = "klaim-bpjs-sheet-url";
-let SHEET_URL = "";
+const DEFAULT_SHEET_URL = "https://script.google.com/macros/s/AKfycbxbHgVf2K72zPtiIQChg4ENwJ5eve8RuQFL9wfWiEZ5eBMkepOT6grf1rpxt4O2gZZ0/exec";
+let SHEET_URL = DEFAULT_SHEET_URL;
 
 async function loadSheetUrl(){
   try{
@@ -427,7 +411,11 @@ async function loadSheetUrl(){
       if(res && res.value){ SHEET_URL = res.value; return; }
     }
   }catch(e){}
-  try{ SHEET_URL = window.localStorage.getItem(SHEET_URL_KEY) || ""; }catch(e){}
+  try{
+    const raw = window.localStorage.getItem(SHEET_URL_KEY);
+    if(raw){ SHEET_URL = raw; return; }
+  }catch(e){}
+  SHEET_URL = DEFAULT_SHEET_URL;
 }
 async function saveSheetUrl(url){
   SHEET_URL = url;
@@ -471,17 +459,6 @@ async function syncAllNow(){
   const okB = recB.length ? await sendToSheet({type:"balasan", records: recB}) : true;
   setSyncStatus((okD && okB) ? `Selesai mengirim ${recD.length + recB.length} baris data.` : "Sebagian gagal terkirim, coba lagi.");
 }
-
-document.getElementById("sync-settings-toggle").addEventListener("click", ()=>{
-  const panel = document.getElementById("sync-settings-panel");
-  panel.style.display = panel.style.display === "none" ? "block" : "none";
-});
-document.getElementById("sync-url-save").addEventListener("click", async ()=>{
-  const url = document.getElementById("sync-url").value.trim();
-  await saveSheetUrl(url);
-  setSyncStatus(url ? "URL tersimpan. Data baru akan otomatis terkirim." : "URL dikosongkan, sinkronisasi otomatis dimatikan.");
-});
-document.getElementById("sync-all-now").addEventListener("click", syncAllNow);
 
 /* ---------------- tab switching ---------------- */
 document.querySelectorAll("nav.tabs button").forEach(btn=>{
@@ -749,7 +726,6 @@ document.getElementById("rekap-tahun").addEventListener("change", renderRekap);
 (async function init(){
   await loadAll();
   await loadSheetUrl();
-  document.getElementById("sync-url").value = SHEET_URL;
   renderInputView("diajukan");
   renderInputView("balasan");
   renderRekap();
