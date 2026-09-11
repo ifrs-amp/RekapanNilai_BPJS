@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <title>Klaim BPJS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --bg:#F5F6F3;
@@ -158,15 +159,21 @@
   }
 
   /* ---- Print ---- */
+  .print-title{display:none;}
+  @page{ size: 215mm 330mm landscape; margin: 12mm; }
   @media print{
     body{background:#fff;}
-    .topbar nav.tabs,.toolbar button,.formcard,.rowactions,button.btn{display:none !important;}
+    .topbar,nav.tabs,.toolbar button,.formcard,.rowactions,button.btn,.storage-warning{display:none !important;}
     .toolbar{border:none;padding:0;}
     .app{max-width:100%;padding:0;}
     .card{break-inside:avoid;}
     table{font-size:11px;}
     section.view{display:none;}
     section.view.active{display:block;}
+    .print-title{
+      display:block;font-size:17px;font-weight:700;color:#000;
+      margin:0 0 14px;text-align:center;
+    }
   }
 </style>
 </head>
@@ -195,6 +202,7 @@
   <section class="view active" id="view-rekap">
     <h2 class="view-title">Ringkasan tahunan</h2>
     <p class="view-desc">Perbandingan otomatis antara nilai yang diajukan dan nilai balasan BPJS, per bulan.</p>
+    <h1 class="print-title" id="print-title"></h1>
 
     <div class="toolbar">
       <div class="field">
@@ -203,6 +211,7 @@
       </div>
       <div class="spacer"></div>
       <button class="btn btn-ghost" id="refresh-btn">Muat ulang data</button>
+      <button class="btn btn-ghost" id="rekap-excel-btn">Cetak format Excel</button>
       <button class="btn btn-ghost" onclick="window.print()">Cetak halaman ini</button>
     </div>
 
@@ -723,6 +732,32 @@ function deleteRow(type, id){
 }
 
 /* ---------------- rekap ---------------- */
+function computeRekap(year){
+  const sumFor = (type, bulan) => DATA[type]
+    .filter(r=> r.tahun===year && r.bulan===bulan)
+    .reduce((s,r)=> s + rowTotal(r), 0);
+
+  let totalD=0, totalB=0;
+  const rows = MONTHS.map(m=>{
+    const d = sumFor("diajukan", m);
+    const b = sumFor("balasan", m);
+    totalD += d; totalB += b;
+    const diff = d-b;
+    let status;
+    if(d===0 && b===0) status="Belum ada data";
+    else if(b===0) status="Belum ada balasan";
+    else if(diff===0) status="Sudah sesuai";
+    else status="Ada selisih";
+    return {bulan:m, d, b, diff, status};
+  });
+  return {rows, totalD, totalB};
+}
+
+function reportTitle(year){
+  const namaBulanSekarang = MONTHS[new Date().getMonth()];
+  return `Laporan Tagihan BPJS (${namaBulanSekarang} ${year})`;
+}
+
 function renderRekap(){
   const sel = document.getElementById("rekap-tahun");
   const years = yearsInUse();
@@ -731,31 +766,25 @@ function renderRekap(){
   sel.value = years.includes(Number(current)) ? current : String(years[years.length-1]);
 
   const year = Number(sel.value);
-  const sumFor = (type, bulan) => DATA[type]
-    .filter(r=> r.tahun===year && r.bulan===bulan)
-    .reduce((s,r)=> s + rowTotal(r), 0);
+  const {rows, totalD, totalB} = computeRekap(year);
 
-  let totalD=0, totalB=0;
-  const rowsHtml = MONTHS.map(m=>{
-    const d = sumFor("diajukan", m);
-    const b = sumFor("balasan", m);
-    totalD += d; totalB += b;
-    const diff = d-b;
-    let status, cls;
-    if(d===0 && b===0){ status="Belum ada data"; cls="status-none"; }
-    else if(b===0){ status="Belum ada balasan"; cls="status-diff"; }
-    else if(diff===0){ status="Sudah sesuai"; cls="status-ok"; }
-    else { status="Ada selisih"; cls="status-diff"; }
-    return `
+  document.getElementById("print-title").textContent = reportTitle(year);
+
+  const statusClass = {
+    "Belum ada data":"status-none",
+    "Belum ada balasan":"status-diff",
+    "Sudah sesuai":"status-ok",
+    "Ada selisih":"status-diff"
+  };
+  const rowsHtml = rows.map(r=>`
       <tr>
-        <td>${m}</td>
-        <td class="tnum">${rupiah(d)}</td>
-        <td class="tnum">${rupiah(b)}</td>
-        <td class="tnum">${rupiah(diff)}</td>
-        <td><span class="status-pill ${cls}">${status}</span></td>
+        <td>${r.bulan}</td>
+        <td class="tnum">${rupiah(r.d)}</td>
+        <td class="tnum">${rupiah(r.b)}</td>
+        <td class="tnum">${rupiah(r.diff)}</td>
+        <td><span class="status-pill ${statusClass[r.status]}">${r.status}</span></td>
       </tr>
-    `;
-  }).join("");
+  `).join("");
 
   document.getElementById("rekap-body").innerHTML = rowsHtml;
   document.getElementById("card-diajukan").textContent = rupiah(totalD);
@@ -769,6 +798,42 @@ function renderRekap(){
   document.getElementById("rekap-total-balasan").textContent = rupiah(totalB);
   document.getElementById("rekap-total-selisih").textContent = rupiah(selisih);
 }
+
+function downloadRekapExcel(){
+  const year = Number(document.getElementById("rekap-tahun").value);
+  const {rows, totalD, totalB} = computeRekap(year);
+  const title = reportTitle(year);
+
+  const aoa = [
+    [title],
+    [],
+    ["Bulan","Total Diajukan ke BPJS","Total BA Balasan BPJS","Selisih (Diajukan - Balasan)","Status"],
+    ...rows.map(r=>[r.bulan, r.d, r.b, r.diff, r.status]),
+    ["Total", totalD, totalB, totalD-totalB, ""]
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws["!merges"] = [{s:{r:0,c:0}, e:{r:0,c:4}}];
+  ws["!cols"] = [{wch:14},{wch:22},{wch:22},{wch:24},{wch:18}];
+
+  const currencyFmt = '"Rp" #,##0';
+  const dataStartRow = 3; // baris ke-4 (index 3) = data bulan pertama
+  const lastRow = dataStartRow + rows.length; // baris total
+  for(let r = dataStartRow; r <= lastRow; r++){
+    ["B","C","D"].forEach(col=>{
+      const cell = ws[col + (r+1)];
+      if(cell) cell.z = currencyFmt;
+    });
+  }
+  const titleCell = ws["A1"];
+  if(titleCell) titleCell.s = {font:{bold:true, sz:14}};
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Ringkasan");
+  wb.Workbook = { Views: [{RTL:false}] };
+  XLSX.writeFile(wb, `Laporan_Tagihan_BPJS_${year}.xlsx`);
+}
+document.getElementById("rekap-excel-btn").addEventListener("click", downloadRekapExcel);
 document.getElementById("rekap-tahun").addEventListener("change", renderRekap);
 
 async function refreshAll(){
