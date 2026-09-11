@@ -202,6 +202,7 @@
         <select id="rekap-tahun"></select>
       </div>
       <div class="spacer"></div>
+      <button class="btn btn-ghost" id="refresh-btn">Muat ulang data</button>
       <button class="btn btn-ghost" onclick="window.print()">Cetak halaman ini</button>
     </div>
 
@@ -275,8 +276,56 @@ let FORM_OPEN = {diajukan:false, balasan:false};
 const HAS_STORAGE_API = (typeof window !== "undefined") && !!window.storage &&
   typeof window.storage.get === "function" && typeof window.storage.set === "function";
 
+function jsonpRequest(url){
+  return new Promise((resolve, reject)=>{
+    const cbName = "klaimBpjsCb_" + Date.now() + "_" + Math.floor(Math.random()*1e6);
+    const script = document.createElement("script");
+    const timeout = setTimeout(()=>{ cleanup(); reject(new Error("timeout")); }, 12000);
+    function cleanup(){
+      clearTimeout(timeout);
+      delete window[cbName];
+      if(script.parentNode) script.parentNode.removeChild(script);
+    }
+    window[cbName] = (data)=>{ cleanup(); resolve(data); };
+    script.onerror = ()=>{ cleanup(); reject(new Error("gagal memuat")); };
+    script.src = url + (url.includes("?") ? "&" : "?") + "callback=" + cbName;
+    document.body.appendChild(script);
+  });
+}
+
+async function fetchFromSheet(type){
+  if(!SHEET_URL) return null;
+  try{
+    const sep = SHEET_URL.includes("?") ? "&" : "?";
+    const json = await jsonpRequest(SHEET_URL + sep + "type=" + type);
+    if(json && json.status === "ok" && Array.isArray(json.records)){
+      return json.records.map(r=>{
+        const rec = {
+          id: r.id || uid(),
+          tahun: Number(r.tahun)||0,
+          bulan: r.bulan || "",
+          keterangan: r.keterangan || "Reguler",
+        };
+        CATS.forEach(c=>{
+          rec[c.psn] = Number(r[c.psn])||0;
+          rec[c.nilai] = Number(r[c.nilai])||0;
+        });
+        return rec;
+      });
+    }
+  }catch(e){ /* gagal terhubung ke Sheets, pakai data cadangan lokal */ }
+  return null;
+}
+
 async function loadAll(){
   for(const type of ["diajukan","balasan"]){
+    const remote = await fetchFromSheet(type);
+    if(remote){
+      DATA[type] = remote;
+      try{ window.localStorage.setItem(STORE_KEYS[type], JSON.stringify(remote)); }catch(e){}
+      continue;
+    }
+
     let loaded = null;
 
     if(HAS_STORAGE_API){
@@ -722,10 +771,21 @@ function renderRekap(){
 }
 document.getElementById("rekap-tahun").addEventListener("change", renderRekap);
 
+async function refreshAll(){
+  const btn = document.getElementById("refresh-btn");
+  if(btn){ btn.textContent = "Memuat…"; btn.disabled = true; }
+  await loadAll();
+  renderInputView("diajukan");
+  renderInputView("balasan");
+  renderRekap();
+  if(btn){ btn.textContent = "Muat ulang data"; btn.disabled = false; }
+}
+document.getElementById("refresh-btn").addEventListener("click", refreshAll);
+
 /* ---------------- init ---------------- */
 (async function init(){
-  await loadAll();
   await loadSheetUrl();
+  await loadAll();
   renderInputView("diajukan");
   renderInputView("balasan");
   renderRekap();
